@@ -1,0 +1,281 @@
+:root {
+  /* Column unit and gap: portrait = 12 columns, landscape = 16. Rows are --r tall and each card
+     spans as many as its own height needs (set by app.js). */
+  --u: 10.75px;
+  --g: 6px;
+  --r: 3px;
+  --frame: 8px;
+
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --text: #1d1c1a;
+  --muted: #75716a;
+  --line: #e2dfd8;
+  --accent: #1f4fd8;
+  --accent-text: #ffffff;
+  --new: #c2410c;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body.locked { overflow: hidden; }
+
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: 0.5; cursor: default; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+
+.muted { color: var(--muted); }
+
+/* ---------- header and tabs ---------- */
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 0 12px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.top h1 { margin: 0; font-size: 15px; font-weight: 700; white-space: nowrap; }
+
+.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  padding: 10px 10px 8px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.tabs button:hover { color: var(--text); }
+.tabs button.active { color: var(--text); border-bottom-color: var(--text); font-weight: 600; }
+.tabs .count { margin-left: 5px; font-size: 11px; font-weight: 400; color: var(--muted); }
+.tabs .fresh { margin-left: 4px; font-size: 11px; font-weight: 600; color: var(--new); }
+
+/* ---------- toolbar ---------- */
+
+main { padding: 8px 8px 72px; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 0 4px 8px;
+}
+.toolbar p { margin: 0; }
+.actions { display: flex; gap: 6px; }
+
+/* ---------- packed grid: every image at the same scale, no cropping ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--u));
+  grid-auto-rows: var(--r);
+  grid-auto-flow: dense;
+  column-gap: var(--g);
+  row-gap: 0; /* the vertical gap is the card's margin-bottom, counted in its row span */
+  justify-content: center;
+}
+
+/* The picture box is exactly as wide as the frame allows and has a fixed 306:420 or 420:306
+   ratio (inline aspect-ratio); the image is fitted into it uncropped. The footer is one fixed
+   line. The card is not stretched to its grid area (align-self: start): it keeps this natural
+   height and app.js sizes the area to it. */
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  min-width: 0;
+  margin-bottom: var(--g);
+  padding: var(--frame) var(--frame) 0;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.tile.portrait { grid-column: span 12; }
+.tile.landscape { grid-column: span 16; }
+
+.pic {
+  flex: none;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+.pic img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.tile.selected .pic { outline: 3px solid var(--accent); outline-offset: -3px; }
+.tile.selected .pic img { opacity: 0.85; }
+
+/* The whole footer (check ring + title) is one label: clicking anywhere on it selects. */
+.foot {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  cursor: pointer;
+  user-select: none;
+}
+.foot input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
+.caption {
+  flex: 1;
+  min-width: 0;
+  padding: 0 24px; /* symmetric room for the check ring on the left */
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.foot:hover .caption { color: var(--accent); }
+
+.check {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  transition: border-color 0.12s;
+}
+.foot:hover .check { border-color: var(--muted); }
+.foot input:focus-visible ~ .check { outline: 2px solid var(--accent); outline-offset: 2px; }
+.foot input:checked ~ .check {
+  border-color: var(--accent);
+  background: var(--accent) url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>') center / 14px no-repeat;
+}
+
+.badge {
+  position: absolute;
+  top: calc(var(--frame) + 5px);
+  right: calc(var(--frame) + 5px);
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--new);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+/* ---------- selection bar ---------- */
+
+.selection-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 12px;
+  max-width: calc(100vw - 16px);
+  padding: 8px 10px 8px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+}
+.failure { color: #b91c1c; }
+
+/* ---------- lightbox ---------- */
+
+.lightbox { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; background: var(--bg); }
+.stage { position: relative; flex: 1; min-height: 0; padding: 12px; }
+.stage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: center / contain no-repeat; /* the thumbnail, until the original has loaded */
+}
+.nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 64px;
+  padding: 0 0 6px;
+  font-size: 32px;
+  line-height: 1;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+}
+.nav.prev { left: 8px; }
+.nav.next { right: 8px; }
+
+.lightbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.lightbox-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lightbox-text strong, .lightbox-text span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lightbox-text span { font-size: 12px; color: var(--muted); }
+.lightbox-bar button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.lightbox-bar .close { border-color: transparent; font-size: 16px; }
+
+/* The selection bar would cover the lightbox bar. */
+body.locked .selection-bar { display: none; }
+
+/* ---------- messages ---------- */
+
+.message { max-width: 560px; margin: 15vh auto 0; padding: 0 16px; text-align: center; }
+.message h1 { font-size: 18px; }
+
+/* ---------- phones: exactly 40 units across (landscape + two portraits, or three portraits) ---------- */
+
+@media (max-width: 520px) {
+  :root { --g: 4px; --frame: 5px; --u: calc((100vw - 16px - 39 * var(--g)) / 40); }
+  .grid { grid-template-columns: repeat(40, var(--u)); }
+  .foot { height: 22px; }
+  .top { gap: 10px; padding: 0 8px; }
+  .toolbar p { flex-basis: 100%; }
+  .caption { font-size: 10.5px; padding: 0 18px; }
+  .check { width: 16px; height: 16px; }
+  .foot input:checked ~ .check { background-size: 12px; }
+  .nav { display: none; } /* swipe instead */
+}

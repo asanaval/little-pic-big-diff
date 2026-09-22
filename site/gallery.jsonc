@@ -1,0 +1,53 @@
+// Rewritten by generate.py. Yours to edit: site settings, category order/title/description,
+// image order/title/tags. One image per line; every image line ends with a comma.
+// "// [deleted] {...}" = file is gone (comes back when the file does). "// {...}" = hidden by you.
+{
+  "site": {
+    "title": "Little pic, big diff",
+    "description": "",
+    "addNewImages": "bottom",
+    "thumbSize": 420,
+  },
+  "categories": [
+    {
+      "folder": "demo-characters",
+      "title": "Demo Characters",
+      "description": "",
+      "images": [
+        {"file": "sample_piece-01.jpg", "title": "Sample Piece 01", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 80687},
+        {"file": "sample_piece-02.jpg", "title": "Sample Piece 02", "tags": [], "added": "2026-09-21", "w": 2100, "h": 1530, "bytes": 83112},
+        {"file": "sample_piece-03.jpg", "title": "Sample Piece 03", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 138024},
+        {"file": "sample_piece-04.jpg", "title": "Sample Piece 04", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 78688},
+        {"file": "sample_piece-05.jpg", "title": "Sample Piece 05", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 74847},
+        {"file": "sample_piece-06.jpg", "title": "Sample Piece 06", "tags": [], "added": "2026-09-21", "w": 1610, "h": 2100, "bytes": 90963},
+        {"file": "sample_piece-07.jpg", "title": "Sample Piece 07", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 82205},
+        {"file": "sample_piece-08.jpg", "title": "Sample Piece 08", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 82484},
+        {"file": "sample_piece-09.jpg", "title": "Sample Piece 09", "tags": [], "added": "2026-09-21", "w": 2100, "h": 1530, "bytes": 89821},
+        {"file": "sample_piece-10.jpg", "title": "Sample Piece 10", "tags": [], "added": "2026-09-21", "w": 2100, "h": 1530, "bytes": 78697},
+        {"file": "sample_piece-11.jpg", "title": "Sample Piece 11", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 78844},
+        {"file": "sample_piece-12.jpg", "title": "Sample Piece 12", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 75947},
+        {"file": "sample_piece-13.jpg", "title": "Sample Piece 13", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 84245},
+        {"file": "sample_piece-14.jpg", "title": "Sample Piece 14", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 87030},
+        {"file": "sample_piece-15.jpg", "title": "Sample Piece 15", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 71101},
+        {"file": "sample_piece-16.jpg", "title": "Sample Piece 16", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 73971},
+        {"file": "sample_piece-17.jpg", "title": "Sample Piece 17", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 76515},
+      ],
+    },
+    {
+      "folder": "demo-landscapes",
+      "title": "Demo Landscapes",
+      "description": "",
+      "images": [
+        {"file": "sample_piece-01.jpg", "title": "Sample Piece 01", "tags": [], "added": "2026-09-21", "w": 2100, "h": 1530, "bytes": 88319},
+        {"file": "sample_piece-02.jpg", "title": "Sample Piece 02", "tags": [], "added": "2026-09-21", "w": 2100, "h": 1610, "bytes": 88947},
+        {"file": "sample_piece-03.jpg", "title": "Sample Piece 03", "tags": [], "added": "2026-09-21", "w": 2100, "h": 1530, "bytes": 78072},
+        {"file": "sample_piece-04.jpg", "title": "Sample Piece 04", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 95682},
+        {"file": "sample_piece-05.jpg", "title": "Sample Piece 05", "tags": [], "added": "2026-09-21", "w": 2100, "h": 1530, "bytes": 81870},
+        {"file": "sample_piece-06.jpg", "title": "Sample Piece 06", "tags": [], "added": "2026-09-21", "w": 2100, "h": 1530, "bytes": 74810},
+        {"file": "sample_piece-07.jpg", "title": "Sample Piece 07", "tags": [], "added": "2026-09-21", "w": 2100, "h": 1530, "bytes": 78482},
+        {"file": "sample_piece-08.jpg", "title": "Sample Piece 08", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 90414},
+        {"file": "sample_piece-09.jpg", "title": "Sample Piece 09", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 65962},
+      ],
+    },
+  ],
+}
