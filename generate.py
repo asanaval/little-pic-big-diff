@@ -21,6 +21,9 @@ EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 # Folders with this prefix are sample content: left out of the gallery file (and their
 # thumbnails removed) as soon as any other folder exists. The site hides them too, in case.
 DEMO_PREFIX = "z-demo-"
+# A category folder may hold an Archives subfolder (any case): its images belong to the same
+# category, listed as "Archives/<file>", shown after the others under an "Archived" line.
+ARCHIVE_DIR = "Archives"
 # Images are expected to be 1283 x 1761 (short side x long side). An image within RATIO_TOLERANCE
 # of that ratio is resized in place to exactly that ratio; one further off is left alone and its
 # thumbnail (always stretched to the card box) is labeled "Incorrect Ratio". The card box and
@@ -119,6 +122,10 @@ def ordered(entry):
     keys += [k for k in entry if k not in FIRST_KEYS and k not in LAST_KEYS and k != STATE]
     keys += [k for k in LAST_KEYS if k in entry]
     return {k: entry[k] for k in keys}
+
+
+def is_archived(file):
+    return file.lower().startswith(ARCHIVE_DIR.lower() + "/")
 
 
 def derived_path(base, folder, file):
@@ -252,6 +259,7 @@ def render(gallery):
         "// Rewritten by generate.py. Yours to edit: site settings, category order/title/description/hidden,",
         "// image order/title/tags. One image per line; every image line ends with a comma.",
         '// "// [deleted] {...}" = file is gone (comes back when the file does). "// {...}" = hidden by you.',
+        '// "file": "Archives/..." = in the folder\'s Archives subfolder: shown after the others, under an "Archived" line.',
         "{",
         '  "site": {',
     ]
@@ -281,7 +289,7 @@ def main():
     site = gallery["site"] = {**DEFAULT_SITE, **gallery.get("site", {})}
     categories = gallery.setdefault("categories", [])
     today = date.today().isoformat()
-    counts = {"added": 0, "deleted": 0, "restored": 0, "resized": 0, "fixed": 0, "off": 0}
+    counts = {"added": 0, "moved": 0, "deleted": 0, "restored": 0, "resized": 0, "fixed": 0, "off": 0}
 
     folders = sorted(p.name for p in IMAGES.iterdir() if p.is_dir())
     if any(not f.startswith(DEMO_PREFIX) for f in folders):
@@ -305,12 +313,26 @@ def main():
         on_disk = {}
         if path.is_dir():
             on_disk = {p.name: p for p in path.iterdir() if p.is_file() and p.suffix.lower() in EXTENSIONS}
+            for sub in path.iterdir():
+                if sub.is_dir() and sub.name.lower() == ARCHIVE_DIR.lower():
+                    on_disk.update({f"{sub.name}/{p.name}": p for p in sub.iterdir() if p.is_file() and p.suffix.lower() in EXTENSIONS})
 
+        listed = {e["file"] for e in entries}
         for entry in entries:
-            exists = entry["file"] in on_disk
             state = entry.get(STATE)
             if state == "commented":
                 continue
+            if entry["file"] not in on_disk:
+                # A file moved between the folder and its Archives keeps its entry (title, tags, added).
+                name = Path(entry["file"]).name
+                moved = [k for k in on_disk if k not in listed and Path(k).name == name and is_archived(k) != is_archived(entry["file"])]
+                if len(moved) == 1:
+                    print(f"Moved:    {folder}/{entry['file']} -> {moved[0]}")
+                    listed.discard(entry["file"])
+                    listed.add(moved[0])
+                    entry["file"] = moved[0]
+                    counts["moved"] += 1
+            exists = entry["file"] in on_disk
             if state == "deleted" and exists:
                 del entry[STATE]
                 counts["restored"] += 1
@@ -320,14 +342,15 @@ def main():
                 counts["deleted"] += 1
                 print(f"Deleted:  {folder}/{entry['file']}")
 
-        listed = {e["file"] for e in entries}
         fresh = []
         for name in sorted(set(on_disk) - listed, key=str.lower):
             added = date.fromtimestamp(on_disk[name].stat().st_mtime).isoformat() if first_run else today
             fresh.append({"file": name, "title": default_title(Path(name).stem), "tags": [], "added": added})
             counts["added"] += 1
             print(f"Added:    {folder}/{name}")
-        category["images"] = entries = fresh + entries if site["addNewImages"] == "top" else entries + fresh
+        entries = fresh + entries if site["addNewImages"] == "top" else entries + fresh
+        # Archived images after the others, whatever the order in the file.
+        category["images"] = entries = [e for e in entries if not is_archived(e["file"])] + [e for e in entries if is_archived(e["file"])]
 
         for entry in entries:
             if STATE in entry:
@@ -351,7 +374,7 @@ def main():
     print(f"{GALLERY.name}: ", end="")
     print(
         f"{shown} images in {len(categories)} categories. "
-        f"Added {counts['added']}, deleted {counts['deleted']}, restored {counts['restored']}, "
+        f"Added {counts['added']}, moved {counts['moved']}, deleted {counts['deleted']}, restored {counts['restored']}, "
         f"thumbnails made for {counts['resized']}, orphan files removed {orphans}, "
         f"files resized to the exact ratio {counts['fixed']}, incorrect ratio {counts['off']}."
     )

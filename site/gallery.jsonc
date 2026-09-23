@@ -1,6 +1,7 @@
 // Rewritten by generate.py. Yours to edit: site settings, category order/title/description/hidden,
 // image order/title/tags. One image per line; every image line ends with a comma.
 // "// [deleted] {...}" = file is gone (comes back when the file does). "// {...}" = hidden by you.
+// "file": "Archives/..." = in the folder's Archives subfolder: shown after the others, under an "Archived" line.
 {
   "site": {
     "title": "Little pic, big diff",
@@ -34,9 +35,19 @@
         {"file": "sample_piece-12.jpg", "title": "Sample Piece 12", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 75947},
         {"file": "sample_piece-13.jpg", "title": "Sample Piece 13", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 84245},
         {"file": "sample_piece-14.jpg", "title": "Sample Piece 14", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 87030},
-        {"file": "sample_piece-15.jpg", "title": "Sample Piece 15", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 71101},
-        {"file": "sample_piece-16.jpg", "title": "Sample Piece 16", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 73971},
-        {"file": "sample_piece-17.jpg", "title": "Sample Piece 17", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 76515},
+        {"file": "Archives/sample_piece-15.jpg", "title": "Sample Piece 15", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 71101},
+        {"file": "Archives/sample_piece-16.jpg", "title": "Sample Piece 16", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 73971},
+        {"file": "Archives/sample_piece-17.jpg", "title": "Sample Piece 17", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 76515},
+        {"file": "Archives/archive_01.jpg", "title": "Archive 01", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 302905},
+        {"file": "Archives/archive_02.jpg", "title": "Archive 02", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 132224},
+        {"file": "Archives/archive_03.jpg", "title": "Archive 03", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 103909},
+        {"file": "Archives/archive_04.jpg", "title": "Archive 04", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 286258},
+        {"file": "Archives/archive_05.jpg", "title": "Archive 05", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 127226},
+        {"file": "Archives/archive_06.jpg", "title": "Archive 06", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 101883},
+        {"file": "Archives/archive_07.jpg", "title": "Archive 07", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 117065},
+        {"file": "Archives/archive_08.jpg", "title": "Archive 08", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 134069},
+        {"file": "Archives/archive_09.jpg", "title": "Archive 09", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 101876},
+        {"file": "Archives/archive_10.jpg", "title": "Archive 10", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 115678},
       ],
     },
     {

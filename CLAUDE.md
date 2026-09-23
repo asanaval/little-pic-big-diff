@@ -12,6 +12,17 @@ folders. `site/` is the whole website; everything else is tooling.
 - `run.bat` — `prepare.bat` then `serve.bat`. Those two never call each other.
 - `venv.bat` — own copy of `../common/venv.bat` (creates/updates the venv, sets `PY`). This app
   must stay portable: nothing in this folder may reference anything outside it.
+- `archived_mark.py` — writes `site/archived-mark.svg`, the "ARCHIVED" watermark tile behind
+  archived content, and its size in `style.css` (`--archived-mark`): the word as vector
+  outlines from Segoe UI Bold (font-independent, crisp at any zoom, one rasterization per
+  tile) in lines running up at 45°, every line shifted by half a word period against its
+  neighbors (brick pattern), `LINE_GAP` cap heights of clear space between lines (0.75). Such
+  a lattice repeats in a square tile only when period / line spacing = 2n / k (n, k whole,
+  same parity; the side is then k × period / √2): the script takes the smallest such ratio
+  leaving at least `GAP` px between the words of a line, rounds the side to whole pixels and
+  derives the rest from it, so the repeat is exact. Run it
+  again after changing its settings (needs `fonttools`, not in `requirements.txt`; the SVG is
+  tracked, so nothing needs to run on another PC).
 - `serve.py` — the preview server: `http.server` with `Cache-Control: no-store` on every reply, so
   a phone on the LAN never shows stale code after an edit. Stdlib only.
 - `serve.bat` — runs `serve.py` on port 8137 (opening `index.html` as a file does not
@@ -33,6 +44,8 @@ folders. `site/` is the whole website; everything else is tooling.
 
 ## Workflow
 1. Put images in `site/images/<folder>/` (one folder = one tab; jpg, jpeg, png, webp, gif).
+   Images in `site/images/<folder>/Archives/` (any case) belong to the same tab but are shown
+   after the others, under an "Archived" rule, and the lightbox labels them Archived.
 2. `prepare.bat`.
 3. Optionally edit `site/gallery.jsonc` (order, titles, tags, tab titles/descriptions).
 4. `serve.bat` to look at the result (`run.bat` = steps 2 and 4 in one go).
@@ -45,6 +58,12 @@ with a comma (trailing commas are allowed, so lines can be moved without fixing 
   `added`, any extra key).
 - **Owned by the script** (overwritten): `w`, `h`, `bytes` (after the ratio fix, see below).
 - **New folder** → category appended at the end, title made from the folder name.
+- **Archives**: an image in the folder's `Archives` subfolder is listed as `"file":
+  "Archives/<name>"` (the subfolder's name as on disk; `ARCHIVE_DIR`, matched in any case);
+  its thumbnail is `thumbs/<folder>/Archives/<name>.webp`. Archived entries are always written
+  after the others (`is_archived`), whatever their order in the file. A file moved between
+  the folder and its `Archives` keeps its entry, title, tags and date (`Moved:` in the output)
+  when exactly one file of that name appears on the other side.
 - **New file** → line added at the bottom of its category (`"addNewImages": "top"` in `site` puts
   new lines at the top instead), title made from the file name, `added` = today. On the very first
   run (no `gallery.jsonc` yet) `added` is the file's modified date, so that not everything is "new".
@@ -52,7 +71,7 @@ with a comma (trailing commas are allowed, so lines can be moved without fixing 
   line is uncommented with its title/tags intact. Delete the line by hand to forget the image.
 - **`// {...},` without `[deleted]`** = hidden by hand. The script keeps the line as it is and
   never re-adds the file. An unreadable image is hidden this way by the script (it prints why).
-- Other comments are **not** preserved (only the three header lines are written back).
+- Other comments are **not** preserved (only the four header lines are written back).
 - Folders named `z-demo-*` (`DEMO_PREFIX`) are sample content: as soon as any other folder
   exists in `site/images/`, the script leaves them out of the file (their category blocks are
   dropped, their thumbnails removed as orphans; the folders themselves stay) and prints which.
@@ -95,6 +114,17 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
 `tags` are private notes for now: the site does not show or use them.
 
 ## Site behavior
+- **Archived images** (`archived` on the image, from the `Archives/` prefix of its file) come
+  after the others in a tab, their thumbnails in gray (`filter: grayscale`; the lightbox shows
+  the original in color): a second grid under a rule reading "Archived" (`.divider`; two
+  grids because in one dense grid the archived cards would climb into holes above the rule).
+  The lightbox runs through both in that order and shows the same "Archived" tag (`.archived-tag`,
+  white on gray) to the right of the title, over a slide tiled with a faint diagonal "ARCHIVED"
+  watermark (`--archived-mark`: `archived-mark.svg`, see `archived_mark.py`; also behind the
+  grid's archived part, `.archive`: its rule, toolbar and grid, window edge to window edge,
+  down to the bottom of `main`; the rule's row is pulled up by half its height so the line
+  lies on the area's top edge and the watermark starts exactly at the line).
+  Addresses keep the subfolder: `#folder/Archives/file` (`urlPath` encodes each segment).
 - **Grid** ("packed blocks"): CSS grid with `grid-auto-flow: dense`. Columns are `--u` (10.75 px)
   wide with a `--g` (6 px) gap: portrait (w < h) spans 12, landscape 16. Every card has a fixed
   picture box, 306:420 for portraits and 420:306 for landscapes (inline `aspect-ratio`), which
@@ -139,7 +169,9 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   `localStorage` (`lpbd-selection`, ids are `folder/file`) and ids that no longer exist are
   dropped at load; with it off (the default) a reload starts with nothing selected, and any
   stored selection is removed. Everything sits in the toolbar
-  under the tabs (on phones, ≤ 520 px, the controls are instead a bar fixed at the bottom of
+  under the tabs (sticky under the header on desktop while something is selected,
+  `.toolbar.sticky`, within `.current`, the toolbar and the current grid, so it scrolls away
+  when the archived area reaches it; on phones, ≤ 520 px, the controls are instead a bar fixed at the bottom of
   the screen, rendered after `main` because `main` is what the tab swipe moves and a
   transformed ancestor would carry a fixed bar along; `useMediaQuery(PHONE_QUERY)`, the
   description staying at the top): the tab's description at the left; at the right a status block, "x images
@@ -147,13 +179,19 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   Dismiss button among the buttons), and then the buttons, always side by side (they wrap
   when the width runs out). The buttons, in order: Clear, the blue "Download <size>" (the
   whole selection, all tabs) or, when nothing is selected, the blue "Download all <size>"
-  (this tab), then Select all / Deselect all (this tab; Deselect all as soon as one image of
-  the tab is selected). Clear and Download all only exist
+  (this tab), then Select all / Deselect all (Select all selects the tab's current images;
+  Deselect all, shown as soon as one of them is selected, deselects the whole tab, archives
+  included). The archived part has its own "Select all archives" / "Deselect all archives"
+  in a toolbar of its own under the "Archived" rule, at the right like the tab's, acting on
+  the archived images only. Clear and Download all only exist
   when `showClearButton` / `showDownloadAllButton` in the `site` block are `true` (both
   are `false` by default). There is no other bar.
 - **Download**: one image → direct download of the original. Several → originals are fetched
   (4 at once) and zipped in the browser with JSZip, uncompressed (`STORE`); paths inside the ZIP
-  are `folder/file`, or just `file` when all come from one folder. Because the ZIP is built in
+  are `folder/file`, or just `file` when all come from one folder, with the `Archives` subfolder
+  flattened into its parent (an archived file that shares its name with a current one of the
+  same folder gets " (archived)" before its extension); a single archived file downloads under
+  its bare name too. Because the ZIP is built in
   memory, a download is capped at `maxDownloadMB` (`site` setting, 100 by default; the sum of
   the images' `bytes`). Selecting is never refused: while the selection is over the cap,
   "Selection is too large to download" shows in the status block in place of the count and
@@ -211,7 +249,8 @@ path, last one wins) and a *referrer* (listed under the path with its own counts
   image title.
 - **Events** (GoatCounter "event" hits), title = image or tab title, details in the referrer:
   - `select/<folder>/<file>`, `unselect/<folder>/<file>` — referrer `card` or `lightbox`.
-    `select-all/<folder>`, `unselect-all/<folder>` (the tab's button; not one hit per image).
+    `select-all/<folder>`, `unselect-all/<folder>` (the tab's button; not one hit per image);
+    `select-all/<folder>/archived`, `unselect-all/<folder>/archived` (the archived part's).
     `clear` (the Clear button in the toolbar).
   - `download` — one hit per download, whether one file or a ZIP; the referrer is the list of
     image ids separated by `;` (cut at about 2000 characters, then ending in `;+N`). Sent only

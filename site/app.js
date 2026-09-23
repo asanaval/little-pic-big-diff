@@ -80,7 +80,9 @@
       },
       view: (hash, title) => count({ path: "/#" + hash, title }),
       select: (image, selected, via) => event(`${selected ? "select" : "unselect"}/${bareName(image)}`, image.title, via),
-      selectAll: (category, selected) => event(`${selected ? "select" : "unselect"}-all/${category.folder}`, category.title),
+      // `part` is "" for the tab's current images, "archived" for its archived ones.
+      selectAll: (category, selected, part = "") =>
+        event(`${selected ? "select" : "unselect"}-all/${category.folder}${part && "/" + part}`, category.title),
       clear: () => event("clear", "Clear selection"),
       // One hit per download, whether one file or a ZIP; the image names are in the referrer field.
       download: (images) => event("download", "Download", list(images)),
@@ -123,7 +125,8 @@
     return JSON.parse(out);
   }
 
-  const urlPath = (...parts) => parts.map(encodeURIComponent).join("/");
+  // A part may itself hold slashes ("Archives/x.jpg"): each segment is encoded on its own.
+  const urlPath = (...parts) => parts.flatMap((part) => part.split("/")).map(encodeURIComponent).join("/");
 
   // "New" = added since this visitor's previous visit. A first visit shows no badges. The
   // reference date is fixed for the browser tab's lifetime, so a reload keeps the badges.
@@ -161,6 +164,7 @@
             ...image,
             id: `${category.folder}/${image.file}`,
             folder: category.folder,
+            archived: /^archives\//i.test(image.file), // in the folder's Archives subfolder
             title: image.title || image.file,
             src,
             thumb: urlPath("thumbs", category.folder, image.file + ".webp"),
@@ -173,7 +177,9 @@
         }),
       }))
       // A category with "hidden": true in gallery.jsonc, or without a visible image, gets no tab.
-      .filter((category) => !category.hidden && category.images.length);
+      .filter((category) => !category.hidden && category.images.length)
+      // Archived images come after the others, whatever the order in the file.
+      .map((category) => ({ ...category, images: [...category.images.filter((i) => !i.archived), ...category.images.filter((i) => i.archived)] }));
     // The z-demo-* folders are only there to try the site out: hidden once real categories exist.
     const real = categories.filter((category) => !category.folder.startsWith("z-demo-"));
     return { site, categories: real.length ? real : categories };
@@ -204,14 +210,25 @@
     link.remove();
   }
 
+  // The file name without the Archives subfolder: downloads flatten it into the parent folder.
+  const baseName = (image) => image.file.slice(image.file.lastIndexOf("/") + 1);
+
   async function downloadImages(images, zipName, onProgress) {
     if (images.length === 1) {
-      saveAs(images[0].src, images[0].file);
+      saveAs(images[0].src, baseName(images[0]));
       track.download(images);
       return;
     }
     const zip = new JSZip();
     const oneFolder = new Set(images.map((image) => image.folder)).size === 1;
+    const zipPath = (image) => { // an archived file with a current file's name gets " (archived)"
+      let name = baseName(image);
+      if (image.archived && images.some((other) => !other.archived && other.folder === image.folder && baseName(other) === name)) {
+        name = name.replace(/(\.[^.]+)?$/, " (archived)$1");
+      }
+      const path = oneFolder ? name : `${image.folder}/${name}`;
+      return path;
+    };
     const queue = [...images];
     let fetched = 0;
     onProgress(`Fetching 0 of ${images.length}`);
@@ -220,7 +237,7 @@
         const image = queue.shift();
         const response = await fetch(image.src);
         if (!response.ok) throw new Error(`${image.id}: HTTP ${response.status}`);
-        zip.file(oneFolder ? image.file : image.id, await response.blob());
+        zip.file(zipPath(image), await response.blob());
         onProgress(`Fetching ${++fetched} of ${images.length}`);
       }
     };
@@ -357,7 +374,7 @@
   const Tile = memo(function Tile({ image, selected, onToggle, onOpen }) {
     const ref = useRowSpan();
     return html`
-      <div ref=${ref} className=${`tile ${image.shape}${selected ? " selected" : ""}`}>
+      <div ref=${ref} className=${`tile ${image.shape}${selected ? " selected" : ""}${image.archived ? " archived" : ""}`}>
         <button className="pic" style=${{ aspectRatio: image.box }} onClick=${() => onOpen(image)} title=${image.title}>
           <img src=${image.thumb} alt=${image.title} loading="lazy" decoding="async" />
         </button>
@@ -629,7 +646,7 @@
               const shown = neighbor(step);
               // With two images the same one is on both sides, so its key needs the place too.
               return html`
-                <div key=${count > 2 ? shown.id : `${shown.id}@${place}`} className=${`slide ${place}`} style=${place === "current" ? turnedStyle : null}>
+                <div key=${count > 2 ? shown.id : `${shown.id}@${place}`} className=${`slide ${place}${shown.archived ? " archived" : ""}`} style=${place === "current" ? turnedStyle : null}>
                   <img src=${shown.src} alt=${shown.title} draggable=${false} style=${{ backgroundImage: `url("${shown.thumb}")` }} />
                 </div>
               `;
@@ -647,7 +664,7 @@
         </div>
         <div className="lightbox-bar">
           <div className="lightbox-text">
-            <strong>${image.title}</strong>
+            <strong>${image.title}${image.archived && html`<span className="archived-tag">Archived</span>`}</strong>
             <span>${index + 1} / ${images.length}${facts && ` · ${facts}`}</span>
           </div>
           <button className="primary" onClick=${() => onDownload([image])}>Download</button>
@@ -844,7 +861,26 @@
 
     const selected = allImages.filter((image) => selection.has(image.id));
     const selectedHere = category.images.filter((image) => selection.has(image.id)).length;
-    const noneHere = selectedHere === 0; // the button selects all of this tab, or deselects all of it as soon as one is selected
+    // The tab's current and archived images each have a Select all / Deselect all: the toolbar's
+    // and the archived area's. Each selects its part, or deselects as soon as one of its images
+    // is selected: the archived one its part only, the toolbar's the whole tab, archives included.
+    const current = category.images.filter((image) => !image.archived);
+    const archived = category.images.filter((image) => image.archived);
+    const noneOf = (images) => !images.some((image) => selection.has(image.id));
+    const selectAllButton = (images, part, deselects = images) => {
+      const none = noneOf(images);
+      const what = part ? " all archives" : " all";
+      return html`
+        <button
+          onClick=${() => {
+            track.selectAll(category, none, part);
+            setMany((none ? images : deselects).map((image) => image.id), none);
+          }}
+        >
+          ${none ? "Select" : "Deselect"}${what}
+        </button>
+      `;
+    };
     const siteSlug = slug(gallery.site.title);
 
     // The section controls: the status block and the buttons. In the toolbar on desktop; on
@@ -885,14 +921,7 @@
                   ${downloadLabel(category.images, "Download all")}
                 </button>
               `}
-          <button
-            onClick=${() => {
-              track.selectAll(category, noneHere);
-              setMany(category.images.map((image) => image.id), noneHere);
-            }}
-          >
-            ${noneHere ? "Select all" : "Deselect all"}
-          </button>
+          ${selectAllButton(current, "", category.images)}
           ${failure && !busy && html`<button onClick=${() => setFailure(null)}>Dismiss</button>`}
         </div>
       </div>
@@ -905,16 +934,31 @@
       </header>
 
       <main ref=${mainRef} ...${swipeTabs}>
-        <div className="toolbar">
-          ${(category.description || gallery.site.description) && html`<p>${category.description || gallery.site.description}</p>`}
-          ${!phone && actions}
+        <div className="current">
+          <div className=${selected.length > 0 ? "toolbar sticky" : "toolbar"}>
+            ${(category.description || gallery.site.description) && html`<p>${category.description || gallery.site.description}</p>`}
+            ${!phone && actions}
+          </div>
+          <div className="grid">
+            ${current.map(
+              (image) => html`<${Tile} key=${image.id} image=${image} selected=${selection.has(image.id)} onToggle=${toggle} onOpen=${open} />`
+            )}
+          </div>
         </div>
-
-        <div className="grid">
-          ${category.images.map(
-            (image) => html`<${Tile} key=${image.id} image=${image} selected=${selection.has(image.id)} onToggle=${toggle} onOpen=${open} />`
-          )}
-        </div>
+        ${archived.length > 0 &&
+        html`
+          <section className="archive">
+            <div className="divider"><span className="archived-tag">Archived</span></div>
+            <div className="toolbar">
+              <div className="actions"><div className="buttons">${selectAllButton(archived, "archived")}</div></div>
+            </div>
+            <div className="grid">
+              ${archived.map(
+                (image) => html`<${Tile} key=${image.id} image=${image} selected=${selection.has(image.id)} onToggle=${toggle} onOpen=${open} />`
+              )}
+            </div>
+          </section>
+        `}
       </main>
       ${phone && actions}
 
