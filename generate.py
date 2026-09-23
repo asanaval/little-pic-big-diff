@@ -20,7 +20,7 @@ GALLERY = SITE / "gallery+.jsonc" if (SITE / "gallery+.jsonc").exists() else SIT
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 # Images are expected to be 1283 x 1761 (short side x long side). An image within RATIO_TOLERANCE
 # of that ratio is resized in place to exactly that ratio; one further off is left alone and its
-# thumbnail (always stretched to the card box) is labelled "Incorrect Ratio". The card box and
+# thumbnail (always stretched to the card box) is labeled "Incorrect Ratio". The card box and
 # the thumbnails are 306:420, the same ratio to within 0.001 % (420 long -> 306 short).
 RATIO = (1283, 1761)  # short side, long side
 RATIO_TOLERANCE = 0.005
@@ -211,7 +211,7 @@ def update_image(folder, entry, site, counts):
         print(f"Resized to exact ratio: {folder}/{entry['file']}")
     elif result == "off":
         counts["off"] += 1
-        print(f"INCORRECT RATIO (left as is, thumbnail labelled): {folder}/{entry['file']}")
+        print(f"INCORRECT RATIO (left as is, thumbnail labeled): {folder}/{entry['file']}")
     stat = source.stat()
     thumb = derived_path(THUMBS, folder, entry["file"])
     stale = not thumb.exists() or thumb.stat().st_mtime < stat.st_mtime

@@ -11,7 +11,7 @@
   },
   "categories": [
     {
-      "folder": "demo-characters",
+      "folder": "z-demo-characters",
       "title": "Demo Characters",
       "description": "",
       "images": [
@@ -35,7 +35,7 @@
       ],
     },
     {
-      "folder": "demo-landscapes",
+      "folder": "z-demo-landscapes",
       "title": "Demo Landscapes",
       "description": "",
       "images": [

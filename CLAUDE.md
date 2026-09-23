@@ -25,8 +25,8 @@ folders. `site/` is the whole website; everything else is tooling.
   both `generate.py` (read and rewritten, `gallery.jsonc` is then left alone) and the site (the
   page tries `gallery+.jsonc` first, then `gallery.jsonc`). Same format. To switch to it, copy
   `gallery.jsonc` to `gallery+.jsonc` (or create an empty one and run `prepare.bat`).
-- `site/images/`, `site/thumbs/` — git-ignored in the root `.gitignore` (binary bulk). `thumbs`
-  is disposable: delete it and run `generate.py`.
+- `site/images/`, `site/thumbs/` — tracked in git like the rest (the root `.gitignore` rule that
+  excluded them was removed on purpose). `thumbs` is disposable: delete it and run `generate.py`.
 
 ## Workflow
 1. Put images in `site/images/<folder>/` (one folder = one tab; jpg, jpeg, png, webp, gif).
@@ -50,7 +50,7 @@ with a comma (trailing commas are allowed, so lines can be moved without fixing 
 - **`// {...},` without `[deleted]`** = hidden by hand. The script keeps the line as it is and
   never re-adds the file. An unreadable image is hidden this way by the script (it prints why).
 - Other comments are **not** preserved (only the three header lines are written back).
-- Folders named `demo-*` are sample content: the site hides them as soon as any other category
+- Folders named `z-demo-*` are sample content: the site hides them as soon as any other category
   has images (they stay in the file and in `thumbs`).
 - **`"hidden": true`** on a category block hides its tab (the script keeps the field like any
   other category field; the images and thumbnails stay). Remove the field to show it again.
@@ -84,7 +84,7 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   "Incorrect Ratio" label on white in the middle (Arial Bold, or Pillow's default font).
 `tags` are private notes for now: the site does not show or use them.
 
-## Site behaviour
+## Site behavior
 - **Grid** ("packed blocks"): CSS grid with `grid-auto-flow: dense`. Columns are `--u` (10.75 px)
   wide with a `--g` (6 px) gap: portrait (w < h) spans 12, landscape 16. Every card has a fixed
   picture box, 306:420 for portraits and 420:306 for landscapes (inline `aspect-ratio`), which
@@ -93,7 +93,7 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   (`align-self: start`) and `useRowSpan` in `app.js` sets its `grid-row: span N` from its measured
   height + `margin-bottom` (the vertical gap) with a `ResizeObserver`, so the cell always fits
   the card. Each card is a white rounded card with an 8 px frame on three sides; the footer is
-  one fixed 26 px `<label>` (check ring at the left, bold title between long dashes, centred;
+  one fixed 26 px `<label>` (check ring at the left, bold title between long dashes, centered;
   clicking anywhere on it selects, clicking the picture opens the lightbox) with no margin
   below it. Accepted costs: small holes, and the browser moves later images up into gaps, so the
   visual order can differ from the JSON order (the lightbox follows the JSON order). At ≤ 520 px
@@ -121,8 +121,15 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   GitHub Pages). Progress ("Fetching 3 of 10", "Zipping 40%") shows in the toolbar.
 - **Addresses**: `#folder` = tab, `#folder/file` = that image open in the lightbox. Opening an
   image pushes a history entry (Back closes it); previous/next replace it.
-- **Lightbox**: the original file with the thumbnail as placeholder, ←/→, Esc, Space = select,
-  swipe on touch screens, neighbours are preloaded.
+- **Lightbox**: the original file with the thumbnail as placeholder, ←/→, Esc, Space = select.
+  The stage is a strip of three slides (previous, current, next, so the neighbors are loaded
+  ahead) that follows the finger sideways once the first 8 px of a touch move are more
+  horizontal than vertical; on release it slides on to the neighbor when the drag passed a
+  quarter of the width or was a quick flick (> 0.5 px/ms over > 20 px), else it springs back.
+  Arrows and keys slide the same way (250 ms; none with `prefers-reduced-motion`). The image
+  changes only once the slide has settled, and since that goes through the address hash (not
+  immediate), the strip stays on the neighbor until the new image has rendered and is reset in
+  a layout effect, before the paint: no frame of the old image in between.
 - Light theme only, by choice; dense spacing by choice.
 
 ## Usage counting (GoatCounter)

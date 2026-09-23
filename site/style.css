@@ -225,13 +225,21 @@ main { padding: 8px 8px 72px; }
 /* ---------- lightbox ---------- */
 
 .lightbox { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; background: var(--bg); }
-.stage { position: relative; flex: 1; min-height: 0; padding: 12px; }
+/* The stage clips a strip of slides (previous, current, next) that app.js moves sideways with the
+   finger; pan-y leaves horizontal touch moves to it and vertical ones to the browser. */
+.stage { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: pan-y; }
+.strip { position: absolute; inset: 0; will-change: transform; }
+.slide { position: absolute; inset: 0; padding: 12px; }
+.slide.prev { transform: translateX(-100%); }
+.slide.next { transform: translateX(100%); }
 .stage img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
   background: center / contain no-repeat; /* the thumbnail, until the original has loaded */
+  -webkit-user-drag: none;
+  user-select: none;
 }
 .nav {
   position: absolute;

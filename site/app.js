@@ -1,5 +1,5 @@
 (() => {
-  const { useState, useEffect, useMemo, useCallback, useRef, memo } = React;
+  const { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, memo } = React;
   const html = htm.bind(React.createElement);
 
   const GALLERY_FILE = "gallery.jsonc";
@@ -134,7 +134,7 @@
     }
   }
 
-  function normalise(raw) {
+  function normalize(raw) {
     const site = { title: "Gallery", description: "", ...raw.site };
     const newSince = previousVisit();
     const categories = (raw.categories || [])
@@ -161,8 +161,8 @@
       }))
       // A category with "hidden": true in gallery.jsonc, or without a visible image, gets no tab.
       .filter((category) => !category.hidden && category.images.length);
-    // The demo-* folders are only there to try the site out: hidden once real categories exist.
-    const real = categories.filter((category) => !category.folder.startsWith("demo-"));
+    // The z-demo-* folders are only there to try the site out: hidden once real categories exist.
+    const real = categories.filter((category) => !category.folder.startsWith("z-demo-"));
     return { site, categories: real.length ? real : categories };
   }
 
@@ -335,59 +335,121 @@
     `;
   });
 
+  // The lightbox stage is a strip of three slides (previous, current, next) that follows the
+  // finger sideways. On release it slides on to the neighbor when the drag went past a quarter
+  // of the width or was a quick flick, else it springs back. The arrows and keys slide the same
+  // way. The neighbors are in the DOM, so they are loaded before they are needed.
+  const SLIDE_MS = 250;
+  const PLACES = [[-1, "prev"], [0, "current"], [1, "next"]]; // step from the current image, class
+
   function Lightbox({ images, image, selected, onToggle, onMove, onClose, onDownload }) {
     const index = images.indexOf(image);
-    const touch = useRef(null);
-    const move = useCallback(
-      (step) => onMove(images[(index + step + images.length) % images.length]),
-      [images, index, onMove]
-    );
+    const count = images.length;
+    const strip = useRef(null);
+    const drag = useRef(null); // {x, y, t, axis} while a finger is down
+    const sliding = useRef(false); // a slide is under way, or waiting for the new image to render
+    const neighbor = (step) => images[(index + step + count) % count];
+
+    const reset = () => {
+      strip.current.style.transition = "none";
+      strip.current.style.transform = "";
+      sliding.current = false;
+    };
+    // Animates the strip to `target` px. Then, without `then`, the strip springs back at once.
+    // With `then` (which changes the image, through the address hash, so not right away), the
+    // strip stays where it settled, showing the neighbor, until the render with the new image
+    // has been committed: the layout effect below resets it then, before the browser paints, so
+    // the new current image takes the neighbor's place with no frame of the old one in between.
+    const settle = (target, then) => {
+      const el = strip.current;
+      const duration = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : SLIDE_MS;
+      const done = () => (then ? then() : reset());
+      sliding.current = true;
+      if (!duration || el.style.transform === `translateX(${target}px)`) return done();
+      el.addEventListener("transitionend", done, { once: true });
+      el.style.transition = `transform ${duration}ms ease-out`;
+      el.style.transform = `translateX(${target}px)`;
+    };
+    const slide = (step) => {
+      if (count < 2 || sliding.current) return;
+      settle(-step * strip.current.clientWidth, () => onMove(neighbor(step)));
+    };
+    useLayoutEffect(() => {
+      if (sliding.current) reset();
+    }, [image]);
 
     useEffect(() => {
       const onKey = (event) => {
         if (event.key === "Escape") onClose();
-        else if (event.key === "ArrowLeft") move(-1);
-        else if (event.key === "ArrowRight") move(1);
+        else if (event.key === "ArrowLeft") slide(-1);
+        else if (event.key === "ArrowRight") slide(1);
         else if (event.key === " ") onToggle(image, "lightbox");
         else return;
         event.preventDefault();
       };
       window.addEventListener("keydown", onKey);
       return () => window.removeEventListener("keydown", onKey);
-    }, [move, onClose, onToggle, image]);
+    });
 
     useEffect(() => {
       document.body.classList.add("locked");
       return () => document.body.classList.remove("locked");
     }, []);
 
-    useEffect(() => {
-      if (images.length < 2) return;
-      [1, -1].forEach((step) => {
-        new Image().src = images[(index + step + images.length) % images.length].src;
-      });
-    }, [images, index]);
-
+    // Touch: the first 8 px decide whether the finger moves sideways (ours) or vertically (not).
+    const onTouchStart = (event) => {
+      if (count < 2 || sliding.current) return;
+      const t = event.touches[0];
+      drag.current = { x: t.clientX, y: t.clientY, t: performance.now(), axis: null };
+    };
+    const onTouchMove = (event) => {
+      const d = drag.current;
+      if (!d) return;
+      const t = event.touches[0];
+      const dx = t.clientX - d.x;
+      const dy = t.clientY - d.y;
+      if (!d.axis) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        d.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      }
+      if (d.axis !== "x") return;
+      strip.current.style.transition = "none";
+      strip.current.style.transform = `translateX(${dx}px)`;
+    };
     const onTouchEnd = (event) => {
-      if (touch.current === null) return;
-      const moved = event.changedTouches[0].clientX - touch.current;
-      touch.current = null;
-      if (Math.abs(moved) > 50) move(moved < 0 ? 1 : -1);
+      const d = drag.current;
+      drag.current = null;
+      if (!d || d.axis !== "x") return;
+      const dx = event.changedTouches[0].clientX - d.x;
+      const speed = Math.abs(dx) / (performance.now() - d.t); // px per ms
+      const far = Math.abs(dx) > strip.current.clientWidth / 4 || (speed > 0.5 && Math.abs(dx) > 20);
+      if (far) slide(dx < 0 ? 1 : -1);
+      else settle(0);
+    };
+    const onTouchCancel = () => {
+      if (drag.current && drag.current.axis === "x") settle(0);
+      drag.current = null;
     };
 
     const facts = [image.w && `${image.w} × ${image.h}`, formatBytes(image.bytes)].filter(Boolean).join(" · ");
     return html`
       <div className="lightbox" role="dialog" aria-modal="true" aria-label=${image.title}>
-        <div
-          className="stage"
-          onTouchStart=${(event) => (touch.current = event.touches[0].clientX)}
-          onTouchEnd=${onTouchEnd}
-        >
-          <img key=${image.id} src=${image.src} alt=${image.title} style=${{ backgroundImage: `url("${image.thumb}")` }} />
-          ${images.length > 1 &&
+        <div className="stage" onTouchStart=${onTouchStart} onTouchMove=${onTouchMove} onTouchEnd=${onTouchEnd} onTouchCancel=${onTouchCancel}>
+          <div className="strip" ref=${strip}>
+            ${(count > 1 ? PLACES : PLACES.slice(1, 2)).map(([step, place]) => {
+              const shown = neighbor(step);
+              // With two images the same one is on both sides, so its key needs the place too.
+              return html`
+                <div key=${count > 2 ? shown.id : `${shown.id}@${place}`} className=${`slide ${place}`}>
+                  <img src=${shown.src} alt=${shown.title} draggable=${false} style=${{ backgroundImage: `url("${shown.thumb}")` }} />
+                </div>
+              `;
+            })}
+          </div>
+          ${count > 1 &&
           html`
-            <button className="nav prev" onClick=${() => move(-1)} aria-label="Previous image">‹</button>
-            <button className="nav next" onClick=${() => move(1)} aria-label="Next image">›</button>
+            <button className="nav prev" onClick=${() => slide(-1)} aria-label="Previous image">‹</button>
+            <button className="nav next" onClick=${() => slide(1)} aria-label="Next image">›</button>
           `}
         </div>
         <div className="lightbox-bar">
@@ -471,7 +533,7 @@
         let response = await fetch(OVERRIDE_FILE, { cache: "no-cache" });
         if (!response.ok) response = await fetch(GALLERY_FILE, { cache: "no-cache" });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return normalise(parseJsonc(await response.text()));
+        return normalize(parseJsonc(await response.text()));
       };
       load()
         .then((loaded) => {
