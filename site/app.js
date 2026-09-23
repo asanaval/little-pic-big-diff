@@ -189,9 +189,8 @@
   }
 
   const totalBytes = (images) => images.reduce((sum, image) => sum + (image.bytes || 0), 0);
-  // "Download 1.4 MB" for one file (sent as it is), "Download 12.3 MB zip" for several.
-  const downloadLabel = (images, prefix = "Download") =>
-    `${prefix} ${formatBytes(totalBytes(images))}${images.length > 1 ? " zip" : ""}`;
+  // "Download 1.4 MB" (one file is sent as it is, several as a ZIP).
+  const downloadLabel = (images, prefix = "Download") => `${prefix} ${formatBytes(totalBytes(images))}`;
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
   // ---------- download ----------

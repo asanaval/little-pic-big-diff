@@ -98,7 +98,8 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   height and rows line up. Rows are `--r` (3 px) with no row gap; each card keeps its natural height
   (`align-self: start`) and `useRowSpan` in `app.js` sets its `grid-row: span N` from its measured
   height + `margin-bottom` (the vertical gap) with a `ResizeObserver`, so the cell always fits
-  the card. Each card is a white rounded card with an 8 px frame on three sides; the footer is
+  the card. Each card is a white rounded card with an 8 px frame on three sides (the frame turns
+  the accent blue, shadowless, with a white title, when the image is selected); the footer is
   one fixed 26 px `<label>` (check ring at the left, bold title between long dashes, centered;
   clicking anywhere on it selects, clicking the picture opens the lightbox) with no margin
   below it. Accepted costs: small holes, and the browser moves later images up into gaps, so the
@@ -133,8 +134,7 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   selected" over "(n in other tabs)" (or the download progress, or a red failure with a
   Dismiss button among the buttons), and then the buttons, always side by side (they wrap
   when the width runs out). The buttons, in order: Clear, the blue "Download <size>" (the
-  whole selection, all tabs; "Download <size> zip" for more than one file) or, when nothing
-  is selected, the blue "Download all <size> [zip]"
+  whole selection, all tabs) or, when nothing is selected, the blue "Download all <size>"
   (this tab), then Select all / Deselect all (this tab; Deselect all as soon as one image of
   the tab is selected). Clear and Download all only exist
   when `showClearButton` / `showDownloadAllButton` in the `site` block are `true` (both

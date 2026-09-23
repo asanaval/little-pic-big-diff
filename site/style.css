@@ -167,8 +167,9 @@ main { flex: 1; padding: 8px 8px 72px; touch-action: pan-y; }
   overflow: hidden;
 }
 .pic img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.tile.selected .pic { outline: 3px solid var(--accent); outline-offset: -3px; }
-.tile.selected .pic img { opacity: 0.85; }
+/* A selected card: the frame itself turns the accent blue (no shadow), the title white. */
+.tile.selected { background: var(--accent); box-shadow: none; }
+.tile.selected .caption, .tile.selected .foot:hover .caption { color: var(--accent-text); }
 
 /* The whole footer (check ring + title) is one label: clicking anywhere on it selects. */
 .foot {
