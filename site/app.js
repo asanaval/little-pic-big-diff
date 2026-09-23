@@ -447,16 +447,15 @@
     return { ref, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: cancel };
   }
 
-  // Moves `el` to translateX(`target` px) with a transition (none under prefers-reduced-motion,
-  // or when it is there already), then runs `then`. `el` is left at the target: `unglide` puts it
+  // Moves `el` to translateX(`target` px) with a transition (none when it is there already),
+  // then runs `then`. `el` is left at the target: `unglide` puts it
   // back, at once, with no transition.
-  // Arrivals (an image settling in place) ease out; departures (a section or the lightbox
-  // leaving the screen) are shorter and ease in, so they are gone quickly and what follows
-  // (the navigation, then the new render) starts sooner.
+  // Every glide (a section out, an image in, the lightbox sheet out) is 250 ms ease-out.
   const SLIDE_MS = 250;
-  const LEAVE = { ms: 180, easing: "ease-in" };
+  // (The system's reduced-motion setting is deliberately not honored: with it on, every glide
+  // was instant, and by choice the site animates regardless.)
   function glide(el, target, then, { axis = "X", ms = SLIDE_MS, easing = "ease-out" } = {}) {
-    const duration = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms;
+    const duration = ms;
     if (!duration || el.style.transform === `translate${axis}(${target}px)`) return then();
     const done = (event) => {
       if (event.target !== el) return; // a descendant's transition (transitionend bubbles)
@@ -575,7 +574,7 @@
       endY: phone
         ? (dy, far) =>
             far && dy > 0
-              ? glide(sheet.current, sheet.current.clientHeight, onClose, { axis: "Y", ...LEAVE })
+              ? glide(sheet.current, sheet.current.clientHeight, onClose, { axis: "Y" })
               : glide(sheet.current, 0, () => unglide(sheet.current), { axis: "Y" })
         : undefined,
     });
@@ -758,17 +757,18 @@
     // back before that paints (the layout effect). Otherwise main springs back.
     const main = useRef(null);
     const leaving = useRef(false); // main is gliding, or off-screen waiting for the new tab
+    const TAB_MS = 150; // quicker than the lightbox's glides: a whole section is leaving
     const switchTab = (step) => {
       const next = step !== 0 && gallery.categories[gallery.categories.indexOf(category) + step]; // 0: spring back
       leaving.current = true;
-      if (next) glide(main.current, -step * main.current.clientWidth, () => go(next.folder, null), LEAVE);
-      else glide(main.current, 0, () => (unglide(main.current), (leaving.current = false)));
+      if (next) glide(main.current, -step * main.current.clientWidth, () => go(next.folder, null), { ms: TAB_MS });
+      else glide(main.current, 0, () => (unglide(main.current), (leaving.current = false)), { ms: TAB_MS });
     };
     // (`ref` is taken out: spread with the handlers it would override main's own ref.)
     const { ref: bindSwipe, ...swipeTabs } = useSwipe({
       allowed: () => !leaving.current,
       drag: (dx) => follow(main.current, dx),
-      end: (dx, far) => (far ? switchTab(dx < 0 ? 1 : -1) : switchTab(0)),
+      end: (dx, far) => switchTab(far ? (dx < 0 ? 1 : -1) : 0),
     });
     const mainRef = useCallback((el) => ((main.current = el), bindSwipe(el)), [bindSwipe]);
     useLayoutEffect(() => {

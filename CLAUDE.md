@@ -12,7 +12,9 @@ folders. `site/` is the whole website; everything else is tooling.
 - `run.bat` — `prepare.bat` then `serve.bat`. Those two never call each other.
 - `venv.bat` — own copy of `../common/venv.bat` (creates/updates the venv, sets `PY`). This app
   must stay portable: nothing in this folder may reference anything outside it.
-- `serve.bat` — local preview at http://localhost:8137 (opening `index.html` as a file does not
+- `serve.py` — the preview server: `http.server` with `Cache-Control: no-store` on every reply, so
+  a phone on the LAN never shows stale code after an edit. Stdlib only.
+- `serve.bat` — runs `serve.py` on port 8137 (opening `index.html` as a file does not
   work: the browser refuses to `fetch` `gallery.jsonc` from a `file://` address).
 - `assets/` — logo source files (`logo-small-borderless-transparent.png` and other versions,
   `logo-large.png`); not part of the site. `site/logo-small-borderless-transparent.png` is a
@@ -127,8 +129,8 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   can still be prevented before Chrome runs a scroll gesture), a second finger drops
   the swipe, and it counts when it passed a quarter of the width or was a quick flick,
   > 0.5 px/ms over > 20 px). `main` follows the finger and, when the swipe counts (or on a
-  key), glides off the screen (`glide`, 180 ms ease-in: departures are quick and accelerate,
-  arrivals take 250 ms and ease out; none under `prefers-reduced-motion`); the new
+  key), glides off the screen (`glide`, 150 ms ease-out, `TAB_MS`; the lightbox's glides take
+  250 ms; the system's reduced-motion setting is not honored, by choice); the new
   tab then renders in its place without animation (nothing is pre-rendered), `main` being put
   back in a layout effect before that paints. Otherwise `main` springs back.
 - **Selection** is kept across tabs. With `rememberSelection` on it is also stored in
@@ -189,7 +191,7 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   ahead) that follows the finger sideways (`useSwipe`, see Tabs; a dropped swipe springs
   back, and a pinch zoom is left to the browser); on release it slides on to the neighbor when
   the swipe counts, else it springs back.
-  Arrows and keys slide the same way (250 ms; none with `prefers-reduced-motion`). The image
+  Arrows and keys slide the same way (250 ms ease-out). The image
   changes only once the slide has settled, and since that goes through the address hash (not
   immediate), the strip stays on the neighbor until the new image has rendered and is reset in
   a layout effect, before the paint: no frame of the old image in between.
