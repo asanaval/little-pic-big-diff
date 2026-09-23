@@ -105,11 +105,15 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
 - **Tabs** (`Tabs` in `app.js`): the strip scrolls sideways when it does not fit, with its
   scrollbar hidden, so a ≪ or ≫ is overlaid on the edge behind which more tabs hide (checked on
   scroll and on resize); tapping it scrolls 70 % of the strip's width that way. The active tab
-  is scrolled into view when it changes. On touch screens a sideways swipe on the page goes to
-  the previous/next tab, with no wrap-around at the ends (`useSwipe`, the recognizer shared with
-  the lightbox: the first 8 px of a touch move decide between sideways and vertical, a second
-  finger drops the swipe, and it counts when it passed a quarter of the width or was a quick
-  flick, > 0.5 px/ms over > 20 px).
+  is scrolled into view when it changes. On touch screens a sideways swipe anywhere under the
+  header (`main` fills the rest of the screen, blank space included) goes to the previous/next
+  tab, with no wrap-around at the ends (`useSwipe`, the recognizer shared with the lightbox:
+  the first 8 px of a touch move decide between sideways and vertical, a second finger drops
+  the swipe, and it counts when it passed a quarter of the width or was a quick flick,
+  > 0.5 px/ms over > 20 px). `main` follows the finger and, when the swipe counts, glides off
+  the screen (`glide`, 250 ms, none under `prefers-reduced-motion`); the new tab then renders
+  in its place without animation (nothing is pre-rendered), `main` being put back in a layout
+  effect before that paints. Otherwise `main` springs back.
 - **Selection** is kept across tabs and stored in `localStorage` (`lpbd-selection`, ids are
   `folder/file`); ids that no longer exist are dropped at load. Everything sits in the toolbar
   under the tabs: the tab's description at the left, at the right "x images selected (n in other

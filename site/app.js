@@ -378,11 +378,30 @@
     return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: cancel };
   }
 
+  // Moves `el` to translateX(`target` px) with a transition (none under prefers-reduced-motion,
+  // or when it is there already), then runs `then`. `el` is left at the target: `unglide` puts it
+  // back, at once, with no transition.
+  const SLIDE_MS = 250;
+  function glide(el, target, then) {
+    const duration = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : SLIDE_MS;
+    if (!duration || el.style.transform === `translateX(${target}px)`) return then();
+    el.addEventListener("transitionend", then, { once: true });
+    el.style.transition = `transform ${duration}ms ease-out`;
+    el.style.transform = `translateX(${target}px)`;
+  }
+  function unglide(el) {
+    el.style.transition = "none";
+    el.style.transform = "";
+  }
+  const follow = (el, dx) => {
+    el.style.transition = "none";
+    el.style.transform = `translateX(${dx}px)`;
+  };
+
   // The lightbox stage is a strip of three slides (previous, current, next) that follows the
   // finger sideways. On release it slides on to the neighbor when the drag went past a quarter
   // of the width or was a quick flick, else it springs back. The arrows and keys slide the same
   // way. The neighbors are in the DOM, so they are loaded before they are needed.
-  const SLIDE_MS = 250;
   const PLACES = [[-1, "prev"], [0, "current"], [1, "next"]]; // step from the current image, class
 
   function Lightbox({ images, image, selected, onToggle, onMove, onClose, onDownload }) {
@@ -393,24 +412,17 @@
     const neighbor = (step) => images[(index + step + count) % count];
 
     const reset = () => {
-      strip.current.style.transition = "none";
-      strip.current.style.transform = "";
+      unglide(strip.current);
       sliding.current = false;
     };
-    // Animates the strip to `target` px. Then, without `then`, the strip springs back at once.
+    // Glides the strip to `target` px. Then, without `then`, the strip springs back at once.
     // With `then` (which changes the image, through the address hash, so not right away), the
     // strip stays where it settled, showing the neighbor, until the render with the new image
     // has been committed: the layout effect below resets it then, before the browser paints, so
     // the new current image takes the neighbor's place with no frame of the old one in between.
     const settle = (target, then) => {
-      const el = strip.current;
-      const duration = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : SLIDE_MS;
-      const done = () => (then ? then() : reset());
       sliding.current = true;
-      if (!duration || el.style.transform === `translateX(${target}px)`) return done();
-      el.addEventListener("transitionend", done, { once: true });
-      el.style.transition = `transform ${duration}ms ease-out`;
-      el.style.transform = `translateX(${target}px)`;
+      glide(strip.current, target, () => (then ? then() : reset()));
     };
     const slide = (step) => {
       if (count < 2 || sliding.current) return;
@@ -440,10 +452,7 @@
 
     const swipe = useSwipe({
       allowed: () => count > 1 && !sliding.current,
-      drag: (dx) => {
-        strip.current.style.transition = "none";
-        strip.current.style.transform = `translateX(${dx}px)`;
-      },
+      drag: (dx) => follow(strip.current, dx),
       end: (dx, far) => (far ? slide(dx < 0 ? 1 : -1) : settle(0)),
     });
 
@@ -565,14 +574,28 @@
     }, [gallery, allImages, keepOnly]);
 
     const category = gallery && (gallery.categories.find((c) => c.folder === route.folder) || gallery.categories[0]);
-    // A swipe on the page goes to the previous/next tab; there is no wrap-around at the ends.
+    // A swipe on the page goes to the previous/next tab: main follows the finger and, when the
+    // swipe counts and there is a tab that way (no wrap-around), glides off the screen; the new
+    // tab then renders in its place, with no animation, and main is put back before that paints
+    // (the layout effect). Otherwise main springs back.
+    const main = useRef(null);
+    const leaving = useRef(false); // main is gliding, or off-screen waiting for the new tab
     const swipeTabs = useSwipe({
+      allowed: () => !leaving.current,
+      drag: (dx) => follow(main.current, dx),
       end: (dx, far) => {
-        if (!far) return;
-        const next = gallery.categories[gallery.categories.indexOf(category) + (dx < 0 ? 1 : -1)];
-        if (next) go(next.folder, null);
+        const next = far && gallery.categories[gallery.categories.indexOf(category) + (dx < 0 ? 1 : -1)];
+        leaving.current = true;
+        if (next) glide(main.current, Math.sign(dx) * main.current.clientWidth, () => go(next.folder, null));
+        else glide(main.current, 0, () => (unglide(main.current), (leaving.current = false)));
       },
     });
+    useLayoutEffect(() => {
+      if (leaving.current && main.current) {
+        unglide(main.current);
+        leaving.current = false;
+      }
+    }, [category]);
     const openImage = (category && route.file && category.images.find((image) => image.file === route.file)) || null;
 
     useEffect(() => {
@@ -635,7 +658,7 @@
         <${Tabs} categories=${gallery.categories} category=${category} go=${go} />
       </header>
 
-      <main ...${swipeTabs}>
+      <main ref=${main} ...${swipeTabs}>
         <div className="toolbar">
           ${(category.description || gallery.site.description) && html`<p>${category.description || gallery.site.description}</p>`}
           <div className="actions">

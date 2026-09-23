@@ -98,7 +98,12 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 
 /* ---------- toolbar ---------- */
 
-main { padding: 8px 8px 72px; }
+/* The page fills the screen, and main fills what the header leaves, so a swipe on the blank
+   space under a short grid still lands on main (which carries the tab swipe). main moves
+   sideways with the finger: clip (not hidden, which would break the sticky header) keeps that
+   from widening the page. */
+#root { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; overflow-x: clip; }
+main { flex: 1; padding: 8px 8px 72px; }
 
 .toolbar {
   display: flex;
