@@ -9,6 +9,7 @@ folders. `site/` is the whole website; everything else is tooling.
   `site/thumbs/`. Needs Pillow (`requirements.txt`, venv at
   `%USERPROFILE%\venvs\little-pic-big-diff`).
 - `prepare.bat` — runs `generate.py`. Not scheduled in `runner`; run it after adding/removing images.
+- `run.bat` — `prepare.bat` then `serve.bat`. Those two never call each other.
 - `venv.bat` — own copy of `../common/venv.bat` (creates/updates the venv, sets `PY`). This app
   must stay portable: nothing in this folder may reference anything outside it.
 - `serve.bat` — local preview at http://localhost:8137 (opening `index.html` as a file does not
@@ -28,7 +29,7 @@ folders. `site/` is the whole website; everything else is tooling.
 1. Put images in `site/images/<folder>/` (one folder = one tab; jpg, jpeg, png, webp, gif).
 2. `prepare.bat`.
 3. Optionally edit `site/gallery.jsonc` (order, titles, tags, tab titles/descriptions).
-4. `serve.bat` to look at the result.
+4. `serve.bat` to look at the result (`run.bat` = steps 2 and 4 in one go).
 
 ## gallery.jsonc rules
 `generate.py` rewrites the whole file in a fixed layout: one image per line, every line ending

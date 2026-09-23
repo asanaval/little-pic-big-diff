@@ -22,7 +22,8 @@
   // is added to the address first when it has no w. #toggle-goatcounter switches count.js
   // off/on for a browser.
   // Page views: path "/#folder" or "/#folder/file". Events: path
-  // "<event>/<folder>/<file>", "<event>/<folder>" or "<event>", details in the referrer field.
+  // "<event>/<file>" (bare name, no folder or extension), "<event>/<folder>" or "<event>",
+  // details in the referrer field.
   const track = (() => {
     const queue = [];
     let enabled = null; // null = not decided yet (before gallery.jsonc is read)
@@ -53,11 +54,14 @@
       drain();
     };
     const event = (path, title, referrer = "") => count({ path, title, referrer, event: true });
+    // Filenames are unique across folders, so an image is logged by the bare name only:
+    // no folder, no extension.
+    const bareName = (image) => image.file.replace(/\.[^.]+$/, "");
     const list = (images) => {
-      const ids = images.map((image) => image.id);
-      let text = ids.join(";");
+      const names = images.map(bareName);
+      let text = names.join(";");
       let dropped = 0;
-      while (text.length > COUNT_REF_MAX - 12) text = ids.slice(0, ids.length - ++dropped).join(";");
+      while (text.length > COUNT_REF_MAX - 12) text = names.slice(0, names.length - ++dropped).join(";");
       return dropped ? `${text};+${dropped}` : text;
     };
     return {
@@ -73,14 +77,14 @@
         document.head.append(script);
       },
       view: (hash, title) => count({ path: "/#" + hash, title }),
-      select: (image, selected, via) => event(`${selected ? "select" : "unselect"}/${image.id}`, image.title, via),
+      select: (image, selected, via) => event(`${selected ? "select" : "unselect"}/${bareName(image)}`, image.title, via),
       selectAll: (category, selected) => event(`${selected ? "select" : "unselect"}-all/${category.folder}`, category.title),
       clear: () => event("clear", "Clear selection"),
-      // One hit per download, whether one file or a ZIP; the image ids are in the referrer field.
+      // One hit per download, whether one file or a ZIP; the image names are in the referrer field.
       download: (images) => event("download", "Download", list(images)),
       // Reserved for later: no button sends these yet.
-      vote: (image, up) => event(`${up ? "upvote" : "downvote"}/${image.id}`, image.title),
-      report: (image, reason) => event(`report/${image.id}`, image.title, reason),
+      vote: (image, up) => event(`${up ? "upvote" : "downvote"}/${bareName(image)}`, image.title),
+      report: (image, reason) => event(`report/${bareName(image)}`, image.title, reason),
     };
   })();
 
