@@ -7,6 +7,7 @@
     "description": "",
     "addNewImages": "bottom",
     "thumbSize": 420,
+    "goatcounter": "https://little-pic-big-diff.goatcounter.com/count",
   },
   "categories": [
     {
@@ -68,7 +69,7 @@
     },
     {
       "folder": "Articles",
-      "title": "Articles",
+      "title": "Gift Articles",
       "description": "",
       "images": [
         {"file": "G1.jpg", "title": "G1", "tags": [], "added": "2026-09-21", "w": 345, "h": 473, "bytes": 65540},

@@ -90,7 +90,8 @@ main { padding: 8px 8px 72px; }
   padding: 0 4px 8px;
 }
 .toolbar p { margin: 0; }
-.actions { display: flex; gap: 6px; }
+.actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 8px; margin-left: auto; }
+.actions > span { margin-right: 6px; }
 
 /* ---------- packed grid: every image at the same scale, no cropping ---------- */
 
@@ -196,26 +197,6 @@ main { padding: 8px 8px 72px; }
   pointer-events: none;
 }
 
-/* ---------- selection bar ---------- */
-
-.selection-bar {
-  position: fixed;
-  left: 50%;
-  bottom: 12px;
-  transform: translateX(-50%);
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px 12px;
-  max-width: calc(100vw - 16px);
-  padding: 8px 10px 8px 16px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
-}
 .failure { color: #b91c1c; }
 
 /* ---------- lightbox ---------- */
@@ -258,8 +239,6 @@ main { padding: 8px 8px 72px; }
 .lightbox-bar button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .lightbox-bar .close { border-color: transparent; font-size: 16px; }
 
-/* The selection bar would cover the lightbox bar. */
-body.locked .selection-bar { display: none; }
 
 /* ---------- messages ---------- */
 

@@ -28,6 +28,7 @@ DEFAULT_SITE = {
     "description": "",
     "addNewImages": "bottom",
     "thumbSize": 420,
+    "goatcounter": "",  # "https://<code>.goatcounter.com/count" switches usage counting on
 }
 DELETED_MARK = "[deleted]"
 # An image line that is commented out: by this script ("// [deleted] {...},") or by hand ("// {...},").

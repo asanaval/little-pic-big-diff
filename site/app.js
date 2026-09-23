@@ -8,6 +8,81 @@
   const VISIT_KEY = "lpbd-last-visit";
   const BIG_ZIP_BYTES = 500 * 1024 * 1024;
   const FETCHES_AT_ONCE = 4;
+  const COUNT_SCRIPT = "https://gc.zgo.at/count.js";
+  const COUNT_LOCAL_W = "asana"; // put into the address as ?w=… on localhost when it has no w
+  const COUNT_GAP_MS = 300; // GoatCounter refuses more than 4 hits per second per address
+  const COUNT_REF_MAX = 2000; // GoatCounter cuts longer referrer values
+
+  // ---------- usage counting (GoatCounter) ----------
+  // Enabled by "goatcounter": "https://<code>.goatcounter.com/count" in the site block of
+  // gallery.jsonc; without it nothing is loaded and nothing is sent. One hit per page view or
+  // action, queued and sent one every COUNT_GAP_MS; hits still queued when the tab closes are
+  // lost. Every hit's path ends with "?w=<value>" when the page address has a w query item
+  // (https://…/?w=asana#folder). On localhost (serve.bat) hits are sent too, and ?w=COUNT_LOCAL_W
+  // is added to the address first when it has no w. #toggle-goatcounter switches count.js
+  // off/on for a browser.
+  // Page views: path "/#folder" or "/#folder/file". Events: path
+  // "<event>/<folder>/<file>", "<event>/<folder>" or "<event>", details in the referrer field.
+  const track = (() => {
+    const queue = [];
+    let enabled = null; // null = not decided yet (before gallery.jsonc is read)
+    let timer = null;
+    const send = () => {
+      const hit = queue.shift();
+      if (!hit) return (timer = null);
+      try {
+        window.goatcounter.count(hit);
+      } catch {}
+      timer = setTimeout(send, COUNT_GAP_MS);
+    };
+    const drain = () => {
+      if (enabled && !timer && typeof window.goatcounter?.count === "function") send();
+    };
+    const isLocal = location.protocol === "file:" || /^(localhost$|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.0\.0\.0$|\[::1\]$)/.test(location.hostname);
+    const query = new URLSearchParams(location.search);
+    if (isLocal && !query.has("w")) {
+      query.set("w", COUNT_LOCAL_W);
+      history.replaceState(history.state, "", `${location.pathname}?${query}${location.hash}`);
+    }
+    const marks = new URLSearchParams();
+    if (query.get("w")) marks.set("w", query.get("w"));
+    const suffix = marks.size ? "?" + marks : "";
+    const count = (hit) => {
+      if (enabled === false) return;
+      queue.push({ ...hit, path: hit.path + suffix });
+      drain();
+    };
+    const event = (path, title, referrer = "") => count({ path, title, referrer, event: true });
+    const list = (images) => {
+      const ids = images.map((image) => image.id);
+      let text = ids.join(";");
+      let dropped = 0;
+      while (text.length > COUNT_REF_MAX - 12) text = ids.slice(0, ids.length - ++dropped).join(";");
+      return dropped ? `${text};+${dropped}` : text;
+    };
+    return {
+      start(endpoint) {
+        enabled = /^https:\/\//.test(endpoint || "");
+        if (!enabled) return (queue.length = 0);
+        window.goatcounter = { no_onload: true, no_events: true, allow_local: isLocal, endpoint };
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = COUNT_SCRIPT;
+        script.dataset.goatcounter = endpoint;
+        script.addEventListener("load", drain);
+        document.head.append(script);
+      },
+      view: (hash, title) => count({ path: "/#" + hash, title }),
+      select: (image, selected, via) => event(`${selected ? "select" : "unselect"}/${image.id}`, image.title, via),
+      selectAll: (category, selected) => event(`${selected ? "select" : "unselect"}-all/${category.folder}`, category.title),
+      clear: () => event("clear", "Clear selection"),
+      // One hit per download, whether one file or a ZIP; the image ids are in the referrer field.
+      download: (images) => event("download", "Download", list(images)),
+      // Reserved for later: no button sends these yet.
+      vote: (image, up) => event(`${up ? "upvote" : "downvote"}/${image.id}`, image.title),
+      report: (image, reason) => event(`report/${image.id}`, image.title, reason),
+    };
+  })();
 
   // ---------- data ----------
 
@@ -110,6 +185,7 @@
   async function downloadImages(images, zipName, onProgress) {
     if (images.length === 1) {
       saveAs(images[0].src, images[0].file);
+      track.download(images);
       return;
     }
     const zip = new JSZip();
@@ -133,6 +209,7 @@
     const url = URL.createObjectURL(blob);
     saveAs(url, zipName);
     setTimeout(() => URL.revokeObjectURL(url), 60000);
+    track.download(images);
   }
 
   const slug = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "gallery";
@@ -188,10 +265,14 @@
         localStorage.setItem(SELECTION_KEY, JSON.stringify([...selection]));
       } catch {}
     }, [selection]);
-    const toggle = useCallback((id) => {
+    const current = useRef(selection);
+    current.current = selection;
+    // via = where the click came from ("card", "lightbox"), only used for counting.
+    const toggle = useCallback((image, via) => {
+      track.select(image, !current.current.has(image.id), via);
       setSelection((old) => {
         const next = new Set(old);
-        if (!next.delete(id)) next.add(id);
+        if (!next.delete(image.id)) next.add(image.id);
         return next;
       });
     }, []);
@@ -241,7 +322,7 @@
         </button>
         ${image.isNew && html`<span className="badge">new</span>`}
         <label className="foot" title=${image.title}>
-          <input type="checkbox" checked=${selected} onChange=${() => onToggle(image.id)} />
+          <input type="checkbox" checked=${selected} onChange=${() => onToggle(image, "card")} />
           <span className="check"></span>
           <span className="caption">— ${image.title} —</span>
         </label>
@@ -262,7 +343,7 @@
         if (event.key === "Escape") onClose();
         else if (event.key === "ArrowLeft") move(-1);
         else if (event.key === "ArrowRight") move(1);
-        else if (event.key === " ") onToggle(image.id);
+        else if (event.key === " ") onToggle(image, "lightbox");
         else return;
         event.preventDefault();
       };
@@ -309,7 +390,7 @@
             <strong>${image.title}</strong>
             <span>${index + 1} / ${images.length}${facts && ` · ${facts}`}</span>
           </div>
-          <button className=${selected ? "on" : ""} onClick=${() => onToggle(image.id)}>
+          <button className=${selected ? "on" : ""} onClick=${() => onToggle(image, "lightbox")}>
             ${selected ? "✓ Selected" : "Select"}
           </button>
           <button onClick=${() => onDownload([image])}>Download</button>
@@ -336,7 +417,10 @@
         return normalise(parseJsonc(await response.text()));
       };
       load()
-        .then(setGallery)
+        .then((loaded) => {
+          track.start(loaded.site.goatcounter);
+          setGallery(loaded);
+        })
         .catch((error) => setLoadError(String(error.message || error)));
     }, []);
 
@@ -352,6 +436,13 @@
       if (!gallery) return;
       document.title = openImage ? `${openImage.title} – ${gallery.site.title}` : gallery.site.title;
     }, [gallery, openImage]);
+
+    // One page view per tab shown and per image opened (previous/next in the lightbox included).
+    const shown = openImage || category;
+    useEffect(() => {
+      if (!shown) return;
+      track.view(openImage ? urlPath(openImage.folder, openImage.file) : urlPath(category.folder), shown.title);
+    }, [shown]);
 
     const open = useCallback((image) => go(image.folder, image.file, { state: { openedHere: true } }), [go]);
     const moveTo = useCallback((image) => go(image.folder, image.file, { replace: true, state: history.state }), [go]);
@@ -419,17 +510,40 @@
 
       <main>
         <div className="toolbar">
-          <p>
-            ${category.description || gallery.site.description}
-            <span className="muted"> ${plural(category.images.length, "image")} · ${formatBytes(totalBytes(category.images))}</span>
-          </p>
+          ${(category.description || gallery.site.description) && html`<p>${category.description || gallery.site.description}</p>`}
           <div className="actions">
-            <button onClick=${() => setMany(category.images.map((image) => image.id), !allHereSelected)}>
+            ${failure && html`<span className="failure">${failure}</span>`}
+            ${busy
+              ? html`<span className="muted">${busy}</span>`
+              : selected.length > 0 &&
+                html`
+                  <span>
+                    <strong>${plural(selected.length, "image")}</strong> selected
+                    ${selected.length > selectedHere && html`<span className="muted"> (${selected.length - selectedHere} in other tabs)</span>`}
+                    <span className="muted"> · ${formatBytes(totalBytes(selected))}</span>
+                  </span>
+                `}
+            ${selected.length > 0 && html`<button onClick=${() => (track.clear(), clear())}>Clear</button>`}
+            <button
+              onClick=${() => {
+                track.selectAll(category, !allHereSelected);
+                setMany(category.images.map((image) => image.id), !allHereSelected);
+              }}
+            >
               ${allHereSelected ? "Deselect all" : "Select all"}
             </button>
-            <button disabled=${Boolean(busy)} onClick=${() => download(category.images, `${slug(category.title)}.zip`)}>
-              Download all
-            </button>
+            ${selected.length > 0
+              ? html`
+                  <button className="primary" disabled=${Boolean(busy)} onClick=${() => download(selected, `${siteSlug}-${selected.length}-images.zip`)}>
+                    Download
+                  </button>
+                `
+              : html`
+                  <button disabled=${Boolean(busy)} onClick=${() => download(category.images, `${slug(category.title)}.zip`)}>
+                    Download all
+                  </button>
+                `}
+            ${failure && !busy && html`<button onClick=${() => setFailure(null)}>Dismiss</button>`}
           </div>
         </div>
 
@@ -439,28 +553,6 @@
           )}
         </div>
       </main>
-
-      ${(selected.length > 0 || busy || failure) &&
-      html`
-        <div className="selection-bar" role="status">
-          ${failure && html`<span className="failure">${failure}</span>`}
-          ${busy
-            ? html`<span>${busy}</span>`
-            : selected.length > 0 &&
-              html`
-                <span>
-                  <strong>${plural(selected.length, "image")}</strong> selected
-                  ${selected.length > selectedHere && html`<span className="muted"> (${selected.length - selectedHere} in other tabs)</span>`}
-                  <span className="muted"> · ${formatBytes(totalBytes(selected))}</span>
-                </span>
-                <button className="primary" onClick=${() => download(selected, `${siteSlug}-${selected.length}-images.zip`)}>
-                  ${selected.length === 1 ? "Download" : "Download ZIP"}
-                </button>
-                <button onClick=${clear}>Clear</button>
-              `}
-          ${failure && !busy && selected.length === 0 && html`<button onClick=${() => setFailure(null)}>Dismiss</button>`}
-        </div>
-      `}
 
       ${openImage &&
       html`
