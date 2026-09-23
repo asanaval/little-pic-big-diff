@@ -105,7 +105,11 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
 - **Tabs** (`Tabs` in `app.js`): the strip scrolls sideways when it does not fit, with its
   scrollbar hidden, so a ≪ or ≫ is overlaid on the edge behind which more tabs hide (checked on
   scroll and on resize); tapping it scrolls 70 % of the strip's width that way. The active tab
-  is scrolled into view when it changes.
+  is scrolled into view when it changes. On touch screens a sideways swipe on the page goes to
+  the previous/next tab, with no wrap-around at the ends (`useSwipe`, the recognizer shared with
+  the lightbox: the first 8 px of a touch move decide between sideways and vertical, a second
+  finger drops the swipe, and it counts when it passed a quarter of the width or was a quick
+  flick, > 0.5 px/ms over > 20 px).
 - **Selection** is kept across tabs and stored in `localStorage` (`lpbd-selection`, ids are
   `folder/file`); ids that no longer exist are dropped at load. Everything sits in the toolbar
   under the tabs: the tab's description at the left, at the right "x images selected (n in other
@@ -123,10 +127,9 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   image pushes a history entry (Back closes it); previous/next replace it.
 - **Lightbox**: the original file with the thumbnail as placeholder, ←/→, Esc, Space = select.
   The stage is a strip of three slides (previous, current, next, so the neighbors are loaded
-  ahead) that follows the finger sideways once the first 8 px of a touch move are more
-  horizontal than vertical (a second finger, a pinch zoom, drops the swipe and leaves the zoom
-  to the browser); on release it slides on to the neighbor when the drag passed a
-  quarter of the width or was a quick flick (> 0.5 px/ms over > 20 px), else it springs back.
+  ahead) that follows the finger sideways (`useSwipe`, see Tabs; a dropped swipe springs
+  back, and a pinch zoom is left to the browser); on release it slides on to the neighbor when
+  the swipe counts, else it springs back.
   Arrows and keys slide the same way (250 ms; none with `prefers-reduced-motion`). The image
   changes only once the slide has settled, and since that goes through the address hash (not
   immediate), the strip stays on the neighbor until the new image has rendered and is reset in

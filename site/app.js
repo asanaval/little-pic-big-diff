@@ -335,6 +335,49 @@
     `;
   });
 
+  // Touch handlers (to spread on an element) recognizing a one-finger horizontal swipe. The
+  // first 8 px of a move decide whether it is sideways (ours) or vertical (the browser's, a
+  // scroll); a second finger (a pinch zoom, the browser's too) drops it. `allowed()` is asked at
+  // the touch; `drag(dx)` follows the finger; `end(dx, far)` gets the release, `far` when the
+  // drag passed a quarter of the element's width or was a quick flick; a dropped swipe ends
+  // with `end(0, false)`.
+  function useSwipe({ allowed = () => true, drag, end }) {
+    const touch = useRef(null); // {x, y, t, axis} while a finger is down
+    const cancel = () => {
+      if (touch.current && touch.current.axis === "x") end(0, false);
+      touch.current = null;
+    };
+    const onTouchStart = (event) => {
+      if (event.touches.length > 1) return cancel();
+      if (!allowed()) return;
+      const t = event.touches[0];
+      touch.current = { x: t.clientX, y: t.clientY, t: performance.now(), axis: null };
+    };
+    const onTouchMove = (event) => {
+      const d = touch.current;
+      if (!d) return;
+      if (event.touches.length > 1) return cancel();
+      const t = event.touches[0];
+      const dx = t.clientX - d.x;
+      const dy = t.clientY - d.y;
+      if (!d.axis) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        d.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      }
+      if (d.axis === "x" && drag) drag(dx);
+    };
+    const onTouchEnd = (event) => {
+      const d = touch.current;
+      touch.current = null;
+      if (!d || d.axis !== "x") return;
+      const dx = event.changedTouches[0].clientX - d.x;
+      const speed = Math.abs(dx) / (performance.now() - d.t); // px per ms
+      const far = Math.abs(dx) > event.currentTarget.clientWidth / 4 || (speed > 0.5 && Math.abs(dx) > 20);
+      end(dx, far);
+    };
+    return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: cancel };
+  }
+
   // The lightbox stage is a strip of three slides (previous, current, next) that follows the
   // finger sideways. On release it slides on to the neighbor when the drag went past a quarter
   // of the width or was a quick flick, else it springs back. The arrows and keys slide the same
@@ -346,7 +389,6 @@
     const index = images.indexOf(image);
     const count = images.length;
     const strip = useRef(null);
-    const drag = useRef(null); // {x, y, t, axis} while a finger is down
     const sliding = useRef(false); // a slide is under way, or waiting for the new image to render
     const neighbor = (step) => images[(index + step + count) % count];
 
@@ -396,48 +438,19 @@
       return () => document.body.classList.remove("locked");
     }, []);
 
-    // Touch: the first 8 px decide whether the finger moves sideways (ours) or vertically (not).
-    // A second finger means a pinch zoom, the browser's: the swipe is dropped and springs back.
-    const onTouchStart = (event) => {
-      if (event.touches.length > 1) return onTouchCancel();
-      if (count < 2 || sliding.current) return;
-      const t = event.touches[0];
-      drag.current = { x: t.clientX, y: t.clientY, t: performance.now(), axis: null };
-    };
-    const onTouchMove = (event) => {
-      const d = drag.current;
-      if (!d) return;
-      if (event.touches.length > 1) return onTouchCancel();
-      const t = event.touches[0];
-      const dx = t.clientX - d.x;
-      const dy = t.clientY - d.y;
-      if (!d.axis) {
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-        d.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-      }
-      if (d.axis !== "x") return;
-      strip.current.style.transition = "none";
-      strip.current.style.transform = `translateX(${dx}px)`;
-    };
-    const onTouchEnd = (event) => {
-      const d = drag.current;
-      drag.current = null;
-      if (!d || d.axis !== "x") return;
-      const dx = event.changedTouches[0].clientX - d.x;
-      const speed = Math.abs(dx) / (performance.now() - d.t); // px per ms
-      const far = Math.abs(dx) > strip.current.clientWidth / 4 || (speed > 0.5 && Math.abs(dx) > 20);
-      if (far) slide(dx < 0 ? 1 : -1);
-      else settle(0);
-    };
-    const onTouchCancel = () => {
-      if (drag.current && drag.current.axis === "x") settle(0);
-      drag.current = null;
-    };
+    const swipe = useSwipe({
+      allowed: () => count > 1 && !sliding.current,
+      drag: (dx) => {
+        strip.current.style.transition = "none";
+        strip.current.style.transform = `translateX(${dx}px)`;
+      },
+      end: (dx, far) => (far ? slide(dx < 0 ? 1 : -1) : settle(0)),
+    });
 
     const facts = [image.w && `${image.w} × ${image.h}`, formatBytes(image.bytes)].filter(Boolean).join(" · ");
     return html`
       <div className="lightbox" role="dialog" aria-modal="true" aria-label=${image.title}>
-        <div className="stage" onTouchStart=${onTouchStart} onTouchMove=${onTouchMove} onTouchEnd=${onTouchEnd} onTouchCancel=${onTouchCancel}>
+        <div className="stage" ...${swipe}>
           <div className="strip" ref=${strip}>
             ${(count > 1 ? PLACES : PLACES.slice(1, 2)).map(([step, place]) => {
               const shown = neighbor(step);
@@ -552,6 +565,14 @@
     }, [gallery, allImages, keepOnly]);
 
     const category = gallery && (gallery.categories.find((c) => c.folder === route.folder) || gallery.categories[0]);
+    // A swipe on the page goes to the previous/next tab; there is no wrap-around at the ends.
+    const swipeTabs = useSwipe({
+      end: (dx, far) => {
+        if (!far) return;
+        const next = gallery.categories[gallery.categories.indexOf(category) + (dx < 0 ? 1 : -1)];
+        if (next) go(next.folder, null);
+      },
+    });
     const openImage = (category && route.file && category.images.find((image) => image.file === route.file)) || null;
 
     useEffect(() => {
@@ -614,7 +635,7 @@
         <${Tabs} categories=${gallery.categories} category=${category} go=${go} />
       </header>
 
-      <main>
+      <main ...${swipeTabs}>
         <div className="toolbar">
           ${(category.description || gallery.site.description) && html`<p>${category.description || gallery.site.description}</p>`}
           <div className="actions">

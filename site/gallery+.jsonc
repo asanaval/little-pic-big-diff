@@ -33,7 +33,7 @@
         {"file": "M4.jpg", "title": "M4", "tags": [], "added": "2026-09-22", "w": 473, "h": 345, "bytes": 53112},
         {"file": "M5.jpg", "title": "M5", "tags": [], "added": "2026-09-22", "w": 345, "h": 473, "bytes": 65544},
         {"file": "M6.jpg", "title": "M6", "tags": [], "added": "2026-09-22", "w": 345, "h": 473, "bytes": 67399},
-        {"file": "M7.jpg", "title": "M7", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 1189923},
+        {"file": "M7.jpg", "title": "M7", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 805738},
         {"file": "M8.jpg", "title": "M8", "tags": [], "added": "2026-09-22", "w": 473, "h": 345, "bytes": 69576},
         {"file": "M9.jpg", "title": "M9", "tags": [], "added": "2026-09-22", "w": 345, "h": 473, "bytes": 54345},
         {"file": "M10.jpg", "title": "M10", "tags": [], "added": "2026-09-22", "w": 345, "h": 473, "bytes": 55098},
@@ -55,7 +55,7 @@
       "title": "Depict",
       "description": "",
       "images": [
-        {"file": "K1.jpg", "title": "K1", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 801221},
+        {"file": "K1.jpg", "title": "K1", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 545780},
         {"file": "K2.jpg", "title": "K2", "tags": [], "added": "2026-09-22", "w": 473, "h": 345, "bytes": 73136},
         {"file": "K3.jpg", "title": "K3", "tags": [], "added": "2026-09-22", "w": 473, "h": 345, "bytes": 53213},
         {"file": "K4.jpg", "title": "K4", "tags": [], "added": "2026-09-22", "w": 345, "h": 473, "bytes": 41952},
@@ -63,14 +63,14 @@
         {"file": "K6.jpg", "title": "K6", "tags": [], "added": "2026-09-22", "w": 345, "h": 473, "bytes": 47223},
         {"file": "K7.jpg", "title": "K7", "tags": [], "added": "2026-09-22", "w": 473, "h": 345, "bytes": 83690},
         {"file": "K8.jpg", "title": "K8", "tags": [], "added": "2026-09-22", "w": 473, "h": 345, "bytes": 55783},
-        {"file": "K9.jpg", "title": "K9", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 812804},
-        {"file": "K10.jpg", "title": "K10", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 646631},
-        {"file": "K11.jpg", "title": "K11", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 542947},
-        {"file": "K12.jpg", "title": "K12", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 1001373},
-        {"file": "K13.jpg", "title": "K13", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 793026},
-        {"file": "K14.jpg", "title": "K14", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 1102598},
-        {"file": "K15.jpg", "title": "K15", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 848739},
-        {"file": "K16.jpg", "title": "K16", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 854623},
+        {"file": "K9.jpg", "title": "K9", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 469659},
+        {"file": "K10.jpg", "title": "K10", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 354541},
+        {"file": "K11.jpg", "title": "K11", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 314063},
+        {"file": "K12.jpg", "title": "K12", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 557364},
+        {"file": "K13.jpg", "title": "K13", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 424354},
+        {"file": "K14.jpg", "title": "K14", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 604276},
+        {"file": "K15.jpg", "title": "K15", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 494291},
+        {"file": "K16.jpg", "title": "K16", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 493711},
       ],
     },
     {
@@ -79,7 +79,7 @@
       "description": "",
       "images": [
         {"file": "S1.jpg", "title": "S1", "tags": [], "added": "2026-09-22", "w": 473, "h": 345, "bytes": 75643},
-        {"file": "S2.jpg", "title": "S2", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 745504},
+        {"file": "S2.jpg", "title": "S2", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 492953},
         {"file": "S3.jpg", "title": "S3", "tags": [], "added": "2026-09-22", "w": 345, "h": 473, "bytes": 54138},
         {"file": "S4.jpg", "title": "S4", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 524399},
         {"file": "S5.jpg", "title": "S5", "tags": [], "added": "2026-09-22", "w": 473, "h": 345, "bytes": 74307},
@@ -89,7 +89,7 @@
         {"file": "S9.jpg", "title": "S9", "tags": [], "added": "2026-09-22", "w": 473, "h": 345, "bytes": 64830},
         {"file": "S10.jpg", "title": "S10", "tags": [], "added": "2026-09-22", "w": 345, "h": 473, "bytes": 56471},
         {"file": "S11.jpg", "title": "S11", "tags": [], "added": "2026-09-22", "w": 345, "h": 473, "bytes": 51075},
-        {"file": "S12.jpg", "title": "S12", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 789144},
+        {"file": "S12.jpg", "title": "S12", "tags": [], "added": "2026-09-22", "w": 1761, "h": 1283, "bytes": 792378},
       ],
     },
     {
@@ -114,8 +114,8 @@
       "description": "",
       "images": [
         {"file": "R1.jpg", "title": "R1", "tags": [], "added": "2026-09-22", "w": 1070, "h": 1468, "bytes": 422502},
-        {"file": "R2.jpg", "title": "R2", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 854928},
-        {"file": "R3.jpg", "title": "R3", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 886705},
+        {"file": "R2.jpg", "title": "R2", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 582312},
+        {"file": "R3.jpg", "title": "R3", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 592840},
       ],
     },
     {
@@ -124,7 +124,7 @@
       "description": "",
       "images": [
         {"file": "C1.jpg", "title": "C1", "tags": [], "added": "2026-09-22", "w": 473, "h": 345, "bytes": 77653},
-        {"file": "C2.jpg", "title": "C2", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 659793},
+        {"file": "C2.jpg", "title": "C2", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 438416},
       ],
     },
     {
