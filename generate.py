@@ -18,11 +18,12 @@ THUMBS = SITE / "thumbs"
 GALLERY = SITE / "gallery+.jsonc" if (SITE / "gallery+.jsonc").exists() else SITE / "gallery.jsonc"
 
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-# Every card shows a 306:420 (portrait) or 420:306 (landscape) box. An image within
-# RATIO_TOLERANCE of that is resized in place to exactly that ratio; one further off is left
-# alone and its thumbnail (always stretched to the box) is labelled "Incorrect Ratio".
-RATIO = (306, 420)  # short side, long side
-RATIO_TOLERANCE = 0.02
+# Images are expected to be 1283 x 1761 (short side x long side). An image within RATIO_TOLERANCE
+# of that ratio is resized in place to exactly that ratio; one further off is left alone and its
+# thumbnail (always stretched to the card box) is labelled "Incorrect Ratio". The card box and
+# the thumbnails are 306:420, the same ratio to within 0.001 % (420 long -> 306 short).
+RATIO = (1283, 1761)  # short side, long side
+RATIO_TOLERANCE = 0.005
 DEFAULT_SITE = {
     "title": "Little pic, big diff",
     "description": "",
@@ -240,7 +241,7 @@ def remove_orphans(base, keep):
 def render(gallery):
     dump = lambda value: json.dumps(value, ensure_ascii=False)
     lines = [
-        "// Rewritten by generate.py. Yours to edit: site settings, category order/title/description,",
+        "// Rewritten by generate.py. Yours to edit: site settings, category order/title/description/hidden,",
         "// image order/title/tags. One image per line; every image line ends with a comma.",
         '// "// [deleted] {...}" = file is gone (comes back when the file does). "// {...}" = hidden by you.',
         "{",

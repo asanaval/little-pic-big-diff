@@ -14,6 +14,9 @@ folders. `site/` is the whole website; everything else is tooling.
   must stay portable: nothing in this folder may reference anything outside it.
 - `serve.bat` — local preview at http://localhost:8137 (opening `index.html` as a file does not
   work: the browser refuses to `fetch` `gallery.jsonc` from a `file://` address).
+- `assets/` — logo source files (`logo-small.png`, `logo-large.png`); not part of the site.
+  `site/logo-small.png` is a copy of the small one, shown at the top left instead of the site
+  title (`.top .logo`, sized to the tab strip). Copy again after changing the source.
 - `site/index.html`, `site/app.js`, `site/style.css` — the app. React 18 + htm + JSZip come from
   CDNs (cdnjs, jsdelivr), GoatCounter's `count.js` from gc.zgo.at only when counting is on; there
   is no build step and no `node_modules`.
@@ -49,6 +52,8 @@ with a comma (trailing commas are allowed, so lines can be moved without fixing 
 - Other comments are **not** preserved (only the three header lines are written back).
 - Folders named `demo-*` are sample content: the site hides them as soon as any other category
   has images (they stay in the file and in `thumbs`).
+- **`"hidden": true`** on a category block hides its tab (the script keeps the field like any
+  other category field; the images and thumbnails stay). Remove the field to show it again.
 - A category with no visible images gets no tab. A removed folder keeps its category block with
   all lines `[deleted]`; delete the block by hand to remove it.
 - Invalid JSON → the script prints the line number and changes nothing.
@@ -63,14 +68,16 @@ Thumbnails are WebP, named `<original file name>.webp` (so `a.jpg` and `a.png` c
 remade when missing or older than the source; thumbnails without a visible image are removed.
 There are no intermediate previews: the lightbox shows the original file.
 
-## Ratio rule (306:420)
-Every card shows a 306:420 box (portrait, w < h) or 420:306 (landscape). `generate.py` (`RATIO`,
-`RATIO_TOLERANCE` = 2 %) enforces it:
-- Image within 2 % of the ratio but not exact → **the original file is resized in place** to the
+## Ratio rule (1283:1761)
+Images are expected to be 1283×1761 (short side × long side, either orientation); every image
+must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w < h) or 420:306
+(landscape), which is the same ratio to within 0.001 %. `generate.py` (`RATIO`,
+`RATIO_TOLERANCE` = 0.5 %) enforces it:
+- Image within 0.5 % of the ratio but not exact → **the original file is resized in place** to the
   exact ratio, keeping its long side (JPEG re-saved at quality 95, 4:4:4; WebP quality 95; PNG
   lossless; ICC profile kept; EXIF rotation baked in, EXIF dropped). Printed as
   `Resized to exact ratio`. GIFs and animated files are never touched.
-- Image more than 2 % off → the original is left alone, and printed as `INCORRECT RATIO` on every
+- Image more than 0.5 % off → the original is left alone, and printed as `INCORRECT RATIO` on every
   run until it is fixed at the source.
 - Thumbnails are always exactly `thumbSize` on the long side and the ratio's short side
   (420 → 306×420), stretched if needed; an off-ratio image's thumbnail carries a big red

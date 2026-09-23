@@ -52,14 +52,15 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   top: 0;
   z-index: 10;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 16px;
   padding: 0 12px;
   background: color-mix(in srgb, var(--bg) 92%, transparent);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
 }
-.top h1 { margin: 0; font-size: 15px; font-weight: 700; white-space: nowrap; }
+/* The logo (site/logo-small.png, 221×118) sits in the tab strip's height: ~40px, so 30px tall + 5px above and below. */
+.top .logo { flex: none; height: 30px; width: auto; margin: 5px 0; border-radius: 3px; }
 
 .tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }

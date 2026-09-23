@@ -159,7 +159,8 @@
           };
         }),
       }))
-      .filter((category) => category.images.length);
+      // A category with "hidden": true in gallery.jsonc, or without a visible image, gets no tab.
+      .filter((category) => !category.hidden && category.images.length);
     // The demo-* folders are only there to try the site out: hidden once real categories exist.
     const real = categories.filter((category) => !category.folder.startsWith("demo-"));
     return { site, categories: real.length ? real : categories };
@@ -492,7 +493,7 @@
 
     return html`
       <header className="top">
-        <h1>${gallery.site.title}</h1>
+        <img className="logo" src="logo-small.png" alt=${gallery.site.title} />
         <nav className="tabs" role="tablist">
           ${gallery.categories.map((c) => {
             const fresh = c.images.filter((image) => image.isNew).length;
