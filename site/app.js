@@ -405,6 +405,58 @@
     `;
   }
 
+  // The tab strip scrolls sideways when it does not fit (phones), and nothing shows that by
+  // itself (its scrollbar is hidden). So a ≪ or ≫ overlays the edge behind which more tabs hide;
+  // tapping it scrolls most of a screenful that way. The active tab is kept in view.
+  function Tabs({ categories, category, go }) {
+    const ref = useRef(null);
+    const [more, setMore] = useState({ left: false, right: false });
+    useEffect(() => {
+      const nav = ref.current;
+      const update = () => {
+        const left = nav.scrollLeft > 1;
+        const right = nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 1;
+        setMore((m) => (m.left === left && m.right === right ? m : { left, right }));
+      };
+      update();
+      nav.addEventListener("scroll", update, { passive: true });
+      const observer = new ResizeObserver(update);
+      observer.observe(nav);
+      return () => {
+        nav.removeEventListener("scroll", update);
+        observer.disconnect();
+      };
+    }, [categories]);
+    useEffect(() => {
+      ref.current.querySelector(".active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }, [category]);
+    const scroll = (direction) => ref.current.scrollBy({ left: direction * ref.current.clientWidth * 0.7, behavior: "smooth" });
+
+    return html`
+      <div className="tabs-wrap">
+        ${more.left && html`<button className="more left" aria-label="Earlier tabs" onClick=${() => scroll(-1)}>≪</button>`}
+        <nav className="tabs" role="tablist" ref=${ref}>
+          ${categories.map((c) => {
+            const fresh = c.images.filter((image) => image.isNew).length;
+            return html`
+              <button
+                key=${c.folder}
+                role="tab"
+                aria-selected=${c === category}
+                className=${c === category ? "active" : ""}
+                onClick=${() => c !== category && go(c.folder, null)}
+              >
+                ${c.title}<span className="count">${c.images.length}</span>
+                ${fresh > 0 && html`<span className="fresh" title=${`${fresh} new`}>+${fresh}</span>`}
+              </button>
+            `;
+          })}
+        </nav>
+        ${more.right && html`<button className="more right" aria-label="Later tabs" onClick=${() => scroll(1)}>≫</button>`}
+      </div>
+    `;
+  }
+
   function App() {
     const [gallery, setGallery] = useState(null);
     const [loadError, setLoadError] = useState(null);
@@ -494,61 +546,52 @@
     return html`
       <header className="top">
         <img className="logo" src="logo-small.png" alt=${gallery.site.title} />
-        <nav className="tabs" role="tablist">
-          ${gallery.categories.map((c) => {
-            const fresh = c.images.filter((image) => image.isNew).length;
-            return html`
-              <button
-                key=${c.folder}
-                role="tab"
-                aria-selected=${c === category}
-                className=${c === category ? "active" : ""}
-                onClick=${() => c !== category && go(c.folder, null)}
-              >
-                ${c.title}<span className="count">${c.images.length}</span>
-                ${fresh > 0 && html`<span className="fresh" title=${`${fresh} new`}>+${fresh}</span>`}
-              </button>
-            `;
-          })}
-        </nav>
+        <${Tabs} categories=${gallery.categories} category=${category} go=${go} />
       </header>
 
       <main>
         <div className="toolbar">
           ${(category.description || gallery.site.description) && html`<p>${category.description || gallery.site.description}</p>`}
           <div className="actions">
-            ${failure && html`<span className="failure">${failure}</span>`}
-            ${busy
-              ? html`<span className="muted">${busy}</span>`
-              : selected.length > 0 &&
-                html`
-                  <span>
-                    <strong>${plural(selected.length, "image")}</strong> selected
-                    ${selected.length > selectedHere && html`<span className="muted"> (${selected.length - selectedHere} in other tabs)</span>`}
-                    <span className="muted"> · ${formatBytes(totalBytes(selected))}</span>
-                  </span>
-                `}
-            ${selected.length > 0 && html`<button onClick=${() => (track.clear(), clear())}>Clear</button>`}
-            <button
-              onClick=${() => {
-                track.selectAll(category, !allHereSelected);
-                setMany(category.images.map((image) => image.id), !allHereSelected);
-              }}
-            >
-              ${allHereSelected ? "Deselect all" : "Select all"}
-            </button>
-            ${selected.length > 0
-              ? html`
-                  <button className="primary" disabled=${Boolean(busy)} onClick=${() => download(selected, `${siteSlug}-${selected.length}-images.zip`)}>
-                    Download
-                  </button>
-                `
-              : html`
-                  <button disabled=${Boolean(busy)} onClick=${() => download(category.images, `${slug(category.title)}.zip`)}>
-                    Download all
-                  </button>
-                `}
-            ${failure && !busy && html`<button onClick=${() => setFailure(null)}>Dismiss</button>`}
+            <div className="buttons">
+              ${selected.length > 0 && html`<button onClick=${() => (track.clear(), clear())}>Clear</button>`}
+              <button
+                onClick=${() => {
+                  track.selectAll(category, !allHereSelected);
+                  setMany(category.images.map((image) => image.id), !allHereSelected);
+                }}
+              >
+                ${allHereSelected ? "Deselect all" : "Select all"}
+              </button>
+              ${selected.length > 0
+                ? html`
+                    <button className="primary" disabled=${Boolean(busy)} onClick=${() => download(selected, `${siteSlug}-${selected.length}-images.zip`)}>
+                      Download
+                    </button>
+                  `
+                : html`
+                    <button className="primary" disabled=${Boolean(busy)} onClick=${() => download(category.images, `${slug(category.title)}.zip`)}>
+                      Download all
+                    </button>
+                  `}
+              ${failure && !busy && html`<button onClick=${() => setFailure(null)}>Dismiss</button>`}
+            </div>
+            ${(failure || busy || selected.length > 0) &&
+            html`
+              <div className="status">
+                ${failure && html`<span className="failure">${failure}</span>`}
+                ${busy
+                  ? html`<span className="muted">${busy}</span>`
+                  : selected.length > 0 &&
+                    html`
+                      <span>
+                        <strong>${plural(selected.length, "image")}</strong> selected
+                        ${selected.length > selectedHere && html`<span className="muted"> (${selected.length - selectedHere} in other tabs)</span>`}
+                        <span className="muted"> · ${formatBytes(totalBytes(selected))}</span>
+                      </span>
+                    `}
+              </div>
+            `}
           </div>
         </div>
 

@@ -102,13 +102,18 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
 - **"New"** is per visitor: an image is new when its `added` date is later than the visitor's
   previous visit (`localStorage` `lpbd-last-visit`, fixed for the tab's lifetime in
   `sessionStorage` so a reload keeps the badges). A first visit shows no badges.
+- **Tabs** (`Tabs` in `app.js`): the strip scrolls sideways when it does not fit, with its
+  scrollbar hidden, so a ≪ or ≫ is overlaid on the edge behind which more tabs hide (checked on
+  scroll and on resize); tapping it scrolls 70 % of the strip's width that way. The active tab
+  is scrolled into view when it changes.
 - **Selection** is kept across tabs and stored in `localStorage` (`lpbd-selection`, ids are
   `folder/file`); ids that no longer exist are dropped at load. Everything sits in the toolbar
   under the tabs: the tab's description at the left, at the right "x images selected (n in other
-  tabs) · size" (or the download progress, or a red failure with a Dismiss button) and the
-  buttons: Select all / Deselect all (this tab) and Download all (this tab) when nothing is
-  selected; Clear, Select all / Deselect all and the blue Download (the whole selection, all
-  tabs) when something is. There is no other bar.
+  tabs) · size" (or the download progress, or a red failure with a Dismiss button among the
+  buttons) and then the buttons; on phones the buttons come first and the status text goes on
+  a line under them. The buttons: Select all / Deselect all (this tab) and the blue Download
+  all (this tab) when nothing is selected; Clear, Select all / Deselect all and the blue
+  Download (the whole selection, all tabs) when something is. There is no other bar.
 - **Download**: one image → direct download of the original. Several → originals are fetched
   (4 at once) and zipped in the browser with JSZip, uncompressed (`STORE`); paths inside the ZIP
   are `folder/file`, or just `file` when all come from one folder. Above 500 MB the visitor is

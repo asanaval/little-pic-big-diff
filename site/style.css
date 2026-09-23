@@ -62,8 +62,26 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 /* The logo (site/logo-small.png, 221×118) sits in the tab strip's height: ~40px, so 30px tall + 5px above and below. */
 .top .logo { flex: none; height: 30px; width: auto; margin: 5px 0; border-radius: 3px; }
 
-.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.tabs-wrap { position: relative; flex: 1; min-width: 0; display: flex; }
+.tabs { flex: 1; min-width: 0; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
+/* ≪ / ≫ over the edge that hides more tabs (app.js shows them only then), fading into the header. */
+.tabs-wrap .more {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 30px;
+  border: 0;
+  border-radius: 0;
+  padding: 0 0 2px;
+  background: linear-gradient(to right, var(--bg) 50%, transparent);
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
+.tabs-wrap .more.left { left: 0; text-align: left; }
+.tabs-wrap .more.right { right: 0; text-align: right; background: linear-gradient(to left, var(--bg) 50%, transparent); }
 .tabs button {
   border: 0;
   border-bottom: 2px solid transparent;
@@ -91,8 +109,12 @@ main { padding: 8px 8px 72px; }
   padding: 0 4px 8px;
 }
 .toolbar p { margin: 0; }
+/* Right side of the toolbar: the status (the selection count and size, the download progress,
+   or a failure) and then the buttons, on one line; on phones the buttons go on top and the
+   status on a line under them (see the phone rules below). */
 .actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 8px; margin-left: auto; }
-.actions > span { margin-right: 6px; }
+.actions .buttons { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.actions .status { order: -1; margin-right: 6px; }
 
 /* ---------- packed grid: every image at the same scale, no cropping ---------- */
 
@@ -254,6 +276,8 @@ main { padding: 8px 8px 72px; }
   .foot { height: 22px; }
   .top { gap: 10px; padding: 0 8px; }
   .toolbar p { flex-basis: 100%; }
+  .actions { flex-direction: column; align-items: flex-end; gap: 4px; }
+  .actions .status { order: 0; margin-right: 0; text-align: right; }
   .caption { font-size: 10.5px; padding: 0 18px; }
   .check { width: 16px; height: 16px; }
   .foot input:checked ~ .check { background-size: 12px; }
