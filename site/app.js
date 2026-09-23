@@ -501,15 +501,15 @@
     const sheet = useRef(null);
 
     // On phones, a landscape picture on a portrait phone (or a portrait one on a landscape
-    // phone) can be turned to fill the screen: 90° right for a landscape picture, 90° left for
-    // a portrait one, and back on the next tap. The current slide is given the stage's size
-    // with width and height swapped, then rotated about its center. A new image or a turn of
-    // the phone puts it back.
+    // phone) can be turned to fill the screen: 90° left, so that its bottom is on the right,
+    // and back on the next tap. The current slide is given the stage's size with width and
+    // height swapped, then rotated about its center. A new image or a turn of the phone puts
+    // it back.
     const landscapePhone = useMediaQuery("(orientation: landscape)");
     const mismatch = phone && (image.shape === "landscape") !== landscapePhone;
     const [turned, setTurned] = useState(null); // {w, h}: the stage's size when turned, else null
     useEffect(() => setTurned(null), [image, landscapePhone]);
-    const angle = turned && mismatch ? (image.shape === "landscape" ? 90 : -90) : 0;
+    const angle = turned && mismatch ? -90 : 0;
     const rotation = useRef(0);
     rotation.current = angle;
     const turn = () => setTurned(turned ? null : { w: strip.current.clientWidth, h: strip.current.clientHeight });
@@ -517,7 +517,7 @@
       ? { width: `${turned.h}px`, height: `${turned.w}px`, left: `${(turned.w - turned.h) / 2}px`, top: `${(turned.h - turned.w) / 2}px`, right: "auto", bottom: "auto", transform: `rotate(${angle}deg)` }
       : null;
     // A screen offset or point, in the (possibly rotated) picture's own coordinates.
-    const toLocal = (dx, dy) => (rotation.current === 90 ? [dy, -dx] : rotation.current === -90 ? [-dy, dx] : [dx, dy]);
+    const toLocal = (dx, dy) => (rotation.current === -90 ? [-dy, dx] : [dx, dy]);
     const swipe = useSwipe({
       allowed: () => count > 1 && !sliding.current,
       drag: (dx) => follow(strip.current, dx),
@@ -587,7 +587,7 @@
           ${phone
             ? html`<button className="close-top" onClick=${onClose} aria-label="Close">✕</button>`
             : html`<button className="back" onClick=${onClose}>‹ Back</button>`}
-          ${mismatch && html`<button className="turn-top" onClick=${turn} aria-label=${angle ? "Turn back" : "Turn"}>${(image.shape === "landscape") !== Boolean(angle) ? "↻" : "↺"}</button>`}
+          ${mismatch && html`<button className="turn-top" onClick=${turn} aria-label=${angle ? "Turn back" : "Turn"}>${angle ? "↻" : "↺"}</button>`}
           ${count > 1 &&
           html`
             <button className="nav prev" onClick=${() => slide(-1)} aria-label="Previous image">‹</button>

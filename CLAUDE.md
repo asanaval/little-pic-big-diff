@@ -161,9 +161,9 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   quarter of the height or with a flick, glides it out and closes it (else it springs back;
   `useSwipe`'s `dragY` / `endY`), and an icon-only ✕ at the top right of the picture replaces
   both "‹ Back" and the bar's ✕. When the picture's orientation is not the phone's (a
-  landscape picture on a portrait phone, or the reverse), an icon-only ↻ / ↺ left of the ✕
-  turns it to fill the screen, 90° right for a landscape picture and 90° left for a portrait
-  one, and back on the next tap: the current slide gets the stage's size with width and
+  landscape picture on a portrait phone, or the reverse), an icon-only ↺ left of the ✕ turns
+  it to fill the screen, 90° left so that its bottom is on the right, and back (↻) on the
+  next tap: the current slide gets the stage's size with width and
   height swapped and is rotated about its center; a new image or a turn of the phone puts it
   back, and the pinch maps its offsets into the turned picture's coordinates. Pinch zoom is elastic:
   two fingers scale the current picture around their midpoint (up to 6×) and pan it with the
