@@ -53,8 +53,10 @@ with a comma (trailing commas are allowed, so lines can be moved without fixing 
 - **`// {...},` without `[deleted]`** = hidden by hand. The script keeps the line as it is and
   never re-adds the file. An unreadable image is hidden this way by the script (it prints why).
 - Other comments are **not** preserved (only the three header lines are written back).
-- Folders named `z-demo-*` are sample content: the site hides them as soon as any other category
-  has images (they stay in the file and in `thumbs`).
+- Folders named `z-demo-*` (`DEMO_PREFIX`) are sample content: as soon as any other folder
+  exists in `site/images/`, the script leaves them out of the file (their category blocks are
+  dropped, their thumbnails removed as orphans; the folders themselves stay) and prints which.
+  The site hides them too, as soon as any other category has images, for a hand-edited file.
 - **`"hidden": true`** on a category block hides its tab (the script keeps the field like any
   other category field; the images and thumbnails stay). Remove the field to show it again.
 - A category with no visible images gets no tab. A removed folder keeps its category block with

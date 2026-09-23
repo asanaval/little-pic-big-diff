@@ -18,6 +18,9 @@ THUMBS = SITE / "thumbs"
 GALLERY = SITE / "gallery+.jsonc" if (SITE / "gallery+.jsonc").exists() else SITE / "gallery.jsonc"
 
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+# Folders with this prefix are sample content: left out of the gallery file (and their
+# thumbnails removed) as soon as any other folder exists. The site hides them too, in case.
+DEMO_PREFIX = "z-demo-"
 # Images are expected to be 1283 x 1761 (short side x long side). An image within RATIO_TOLERANCE
 # of that ratio is resized in place to exactly that ratio; one further off is left alone and its
 # thumbnail (always stretched to the card box) is labeled "Incorrect Ratio". The card box and
@@ -280,8 +283,16 @@ def main():
     today = date.today().isoformat()
     counts = {"added": 0, "deleted": 0, "restored": 0, "resized": 0, "fixed": 0, "off": 0}
 
+    folders = sorted(p.name for p in IMAGES.iterdir() if p.is_dir())
+    if any(not f.startswith(DEMO_PREFIX) for f in folders):
+        demo = [c["folder"] for c in categories if c["folder"].startswith(DEMO_PREFIX)]
+        demo += [f for f in folders if f.startswith(DEMO_PREFIX) and f not in demo]
+        if demo:
+            print(f"Demo folders left out (other folders exist): {', '.join(demo)}")
+        categories[:] = [c for c in categories if not c["folder"].startswith(DEMO_PREFIX)]
+        folders = [f for f in folders if not f.startswith(DEMO_PREFIX)]
     known_folders = {c["folder"] for c in categories}
-    for folder in sorted(p.name for p in IMAGES.iterdir() if p.is_dir()):
+    for folder in folders:
         if folder not in known_folders:
             categories.append({"folder": folder, "title": default_title(folder), "description": "", "images": []})
             print(f"New category: {folder}")
