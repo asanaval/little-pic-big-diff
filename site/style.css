@@ -51,16 +51,19 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   position: sticky;
   top: 0;
   z-index: 10;
+  touch-action: pan-x pan-y;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 12px;
+  height: 40px; /* what the tab buttons come to; explicit so that the logo can be sized from it */
+  gap: 8px;
+  padding: 0 12px 0 0; /* nothing left of the logo */
   background: color-mix(in srgb, var(--bg) 92%, transparent);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
 }
-/* The logo (site/logo-small.png, 221×118) sits in the tab strip's height: ~40px, so 30px tall + 5px above and below. */
-.top .logo { flex: none; height: 30px; width: auto; margin: 5px 0; border-radius: 3px; }
+/* The logo (site/logo-small-borderless-transparent.png, 213×111) is scaled to the strip's height,
+   flush with the top, bottom and left edges: no margin or padding around it. */
+.top .logo { flex: none; height: 100%; width: auto; margin: 0; }
 
 .tabs-wrap { position: relative; flex: 1; min-width: 0; display: flex; }
 .tabs { flex: 1; min-width: 0; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
@@ -103,7 +106,9 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
    sideways with the finger: clip (not hidden, which would break the sticky header) keeps that
    from widening the page. */
 #root { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; overflow-x: clip; }
-main { flex: 1; padding: 8px 8px 72px; }
+/* No pinch zoom on the page (header and main): a zoomed-in pan would otherwise read as a tab
+   swipe. The lightbox, a sibling, zooms on its own. */
+main { flex: 1; padding: 8px 8px 72px; touch-action: pan-y; }
 
 .toolbar {
   display: flex;
@@ -114,12 +119,11 @@ main { flex: 1; padding: 8px 8px 72px; }
   padding: 0 4px 8px;
 }
 .toolbar p { margin: 0; }
-/* Right side of the toolbar: the status (the selection count and size, the download progress,
-   or a failure) and then the buttons, on one line; on phones the buttons go on top and the
-   status on a line under them (see the phone rules below). */
+/* Right side of the toolbar: the status block ("x images selected" over "(n in other tabs)",
+   or the download progress, or a failure), then the buttons, always side by side. */
 .actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 8px; margin-left: auto; }
 .actions .buttons { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
-.actions .status { order: -1; margin-right: 6px; }
+.actions .status { display: flex; flex-direction: column; justify-content: center; text-align: right; margin-right: 6px; line-height: 1.25; }
 
 /* ---------- packed grid: every image at the same scale, no cropping ---------- */
 
@@ -231,9 +235,9 @@ main { flex: 1; padding: 8px 8px 72px; }
 
 .lightbox { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; background: var(--bg); }
 /* The stage clips a strip of slides (previous, current, next) that app.js moves sideways with
-   the finger; touch-action leaves one-finger horizontal moves to it, and vertical moves and
-   pinch zoom to the browser. */
-.stage { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: pan-y pinch-zoom; }
+   the finger, and the current picture that a pinch scales (elastic: it springs back on
+   release); touch-action: none leaves every touch to app.js, so the browser never zooms here. */
+.stage { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: none; }
 .strip { position: absolute; inset: 0; will-change: transform; }
 .slide { position: absolute; inset: 0; padding: 12px; }
 .slide.prev { transform: translateX(-100%); }
@@ -260,6 +264,14 @@ main { flex: 1; padding: 8px 8px 72px; }
 }
 .nav.prev { left: 8px; }
 .nav.next { right: 8px; }
+.back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  padding: 4px 12px 5px 8px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+}
 
 .lightbox-bar {
   display: flex;
@@ -288,10 +300,24 @@ main { flex: 1; padding: 8px 8px 72px; }
   :root { --g: 4px; --frame: 5px; --u: calc((100vw - 16px - 39 * var(--g)) / 40); }
   .grid { grid-template-columns: repeat(40, var(--u)); }
   .foot { height: 32px; } /* 5px more above and below than the content needs: a finger-sized target */
-  .top { gap: 10px; padding: 0 8px; }
+  .top { padding: 0 8px 0 0; }
   .toolbar p { flex-basis: 100%; }
-  .actions { flex-direction: column; align-items: flex-end; gap: 4px; }
-  .actions .status { order: 0; margin-right: 0; text-align: right; }
+  /* The section controls are a bar fixed at the bottom of the screen (app.js renders them
+     after main then); main keeps room for it under the grid. */
+  .actions.bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    margin: 0;
+    padding: 8px 12px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    touch-action: pan-y; /* no pinch zoom here either (it is outside main) */
+  }
+  main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
   .caption { font-size: 10.5px; padding: 0 18px; }
   .check { width: 16px; height: 16px; }
   .foot input:checked ~ .check { background-size: 12px; }

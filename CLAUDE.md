@@ -14,9 +14,10 @@ folders. `site/` is the whole website; everything else is tooling.
   must stay portable: nothing in this folder may reference anything outside it.
 - `serve.bat` — local preview at http://localhost:8137 (opening `index.html` as a file does not
   work: the browser refuses to `fetch` `gallery.jsonc` from a `file://` address).
-- `assets/` — logo source files (`logo-small.png`, `logo-large.png`); not part of the site.
-  `site/logo-small.png` is a copy of the small one, shown at the top left instead of the site
-  title (`.top .logo`, sized to the tab strip). Copy again after changing the source.
+- `assets/` — logo source files (`logo-small-borderless-transparent.png` and other versions,
+  `logo-large.png`); not part of the site. `site/logo-small-borderless-transparent.png` is a
+  copy of the transparent one, shown at the top left instead of the site title (`.top .logo`,
+  scaled to the tab strip's 40 px with nothing around it). Copy again after changing the source.
 - `site/index.html`, `site/app.js`, `site/style.css` — the app. React 18 + htm + JSZip come from
   CDNs (cdnjs, jsdelivr), GoatCounter's `count.js` from gc.zgo.at only when counting is on; there
   is no build step and no `node_modules`.
@@ -65,7 +66,9 @@ displayed size; changing it does not resize existing files: delete `thumbs`), `g
 (see Usage counting; `""` = off), `showClearButton` and `showDownloadAllButton` (the toolbar's
 Clear and Download all buttons, see Site behavior; both `false` by default, so hidden),
 `rememberSelection` (`true`: the selection survives a reload, see Site behavior; `false` by
-default: a reload unselects everything).
+default: a reload unselects everything), `showImageCounts` (`true`: the number of images
+after each tab title in the header; `false` by default), `maxDownloadMB` (the selection /
+download cap, see Download; 100 by default).
 
 Thumbnails are WebP, named `<original file name>.webp` (so `a.jpg` and `a.png` cannot collide),
 remade when missing or older than the source; thumbnails without a visible image are removed.
@@ -108,7 +111,8 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
 - **Tabs** (`Tabs` in `app.js`): the strip scrolls sideways when it does not fit, with its
   scrollbar hidden, so a ≪ or ≫ is overlaid on the edge behind which more tabs hide (checked on
   scroll and on resize); tapping it scrolls 70 % of the strip's width that way. The active tab
-  is scrolled into view when it changes. ← / → (with the lightbox closed) and, on touch
+  is scrolled to the middle of the strip when it changes (as far as the ends allow), so it
+  never sits under a marker. ← / → (with the lightbox closed) and, on touch
   screens, a sideways swipe anywhere under the header (`main` fills the rest of the screen,
   blank space included) go to the previous/next tab, with no wrap-around at the ends
   (`switchTab`; `useSwipe` is the swipe recognizer shared with the lightbox:
@@ -122,22 +126,39 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   `localStorage` (`lpbd-selection`, ids are `folder/file`) and ids that no longer exist are
   dropped at load; with it off (the default) a reload starts with nothing selected, and any
   stored selection is removed. Everything sits in the toolbar
-  under the tabs: the tab's description at the left, at the right "x images selected (n in other
-  tabs) · size" (or the download progress, or a red failure with a Dismiss button among the
-  buttons) and then the buttons; on phones the buttons come first and the status text goes on
-  a line under them. The buttons: Select all / Deselect all (this tab) and the blue Download
-  all (this tab) when nothing is selected; Clear, Select all / Deselect all and the blue
-  Download (the whole selection, all tabs) when something is. Clear and Download all only
-  exist when `showClearButton` / `showDownloadAllButton` in the `site` block are `true` (both
+  under the tabs (on phones, ≤ 520 px, the controls are instead a bar fixed at the bottom of
+  the screen, rendered after `main` because `main` is what the tab swipe moves and a
+  transformed ancestor would carry a fixed bar along; `useMediaQuery(PHONE_QUERY)`, the
+  description staying at the top): the tab's description at the left; at the right a status block, "x images
+  selected" over "(n in other tabs)" (or the download progress, or a red failure with a
+  Dismiss button among the buttons), and then the buttons, always side by side (they wrap
+  when the width runs out). The buttons, in order: Clear, the blue "Download <size>" (the
+  whole selection, all tabs; "Download <size> zip" for more than one file) or, when nothing
+  is selected, the blue "Download all <size> [zip]"
+  (this tab), then Select all / Deselect all (this tab; Deselect all as soon as one image of
+  the tab is selected). Clear and Download all only exist
+  when `showClearButton` / `showDownloadAllButton` in the `site` block are `true` (both
   are `false` by default). There is no other bar.
 - **Download**: one image → direct download of the original. Several → originals are fetched
   (4 at once) and zipped in the browser with JSZip, uncompressed (`STORE`); paths inside the ZIP
-  are `folder/file`, or just `file` when all come from one folder. Above 500 MB the visitor is
-  asked to confirm, because the ZIP is built in memory. This needs same-origin images (true on
-  GitHub Pages). Progress ("Fetching 3 of 10", "Zipping 40%") shows in the toolbar.
+  are `folder/file`, or just `file` when all come from one folder. Because the ZIP is built in
+  memory, a download is capped at `maxDownloadMB` (`site` setting, 100 by default; the sum of
+  the images' `bytes`). Selecting is never refused: while the selection is over the cap,
+  "Selection is too large to download" shows in the status block in place of the count and
+  the Download button is not shown (no Dismiss: it is a state, gone as soon as the selection
+  fits again). Download all is not shown when the tab is over the cap. Other messages
+  (a failed download) have a Dismiss button. This needs same-origin images (true on GitHub
+  Pages). Progress ("Fetching 3 of 10", "Zipping 40%") shows in the toolbar.
 - **Addresses**: `#folder` = tab, `#folder/file` = that image open in the lightbox. Opening an
   image pushes a history entry (Back closes it); previous/next replace it.
-- **Lightbox**: the original file with the thumbnail as placeholder, ←/→, Esc, Space = select.
+- **Lightbox**: the original file with the thumbnail as placeholder, ←/→, Esc, Space = select,
+  "‹ Back" at the top left (closes it, like ✕ and Esc); the bar under the picture: title and
+  facts, the blue Download (that one file), Select / ✓ Selected, ✕. Pinch zoom is elastic:
+  two fingers scale the current picture around their midpoint (up to 6×) and pan it with the
+  midpoint, and it springs back as soon as one finger lifts (the stage has `touch-action:
+  none`, so the browser never zooms the page there). The page itself (header, `main`) has
+  no pinch zoom (`touch-action: pan-y` / `pan-x pan-y`): a zoomed-in pan would otherwise be
+  taken for a tab swipe.
   The stage is a strip of three slides (previous, current, next, so the neighbors are loaded
   ahead) that follows the finger sideways (`useSwipe`, see Tabs; a dropped swipe springs
   back, and a pinch zoom is left to the browser); on release it slides on to the neighbor when
@@ -167,6 +188,9 @@ path, last one wins) and a *referrer* (listed under the path with its own counts
     after the file or ZIP was handed to the browser, so a failed ZIP counts nothing. Per-image
     download totals are therefore not on the dashboard, only in the CSV export (which needs
     "Individual pageviews" on, see below).
+  - `error/download` — a download that failed (a fetch or the ZIP), title `Error`, the message
+    in the referrer. A gallery that fails to load cannot be reported: counting only starts
+    once the data file, which holds the GoatCounter address, has loaded.
   - Reserved, no UI yet: `upvote/…`, `downvote/…`, `report/…` (referrer = reason) via
     `track.vote(image, up)` and `track.report(image, reason)`.
 - **Mark**: every path ends with `?w=<value>` when the page address has a `w` query item

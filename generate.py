@@ -33,6 +33,8 @@ DEFAULT_SITE = {
     "showClearButton": False,  # the toolbar's Clear (drops the whole selection)
     "showDownloadAllButton": False,  # the toolbar's Download all (the tab's images, when nothing is selected)
     "rememberSelection": False,  # keep the selection across reloads (localStorage); False: a reload unselects all
+    "showImageCounts": False,  # the number of images after each tab title in the header
+    "maxDownloadMB": 100,  # a selection (or a Download all) beyond this is refused: the ZIP is built in the browser's memory
 }
 DELETED_MARK = "[deleted]"
 # An image line that is commented out: by this script ("// [deleted] {...},") or by hand ("// {...},").

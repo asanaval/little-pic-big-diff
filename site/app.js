@@ -6,7 +6,9 @@
   const OVERRIDE_FILE = "gallery+.jsonc";
   const SELECTION_KEY = "lpbd-selection";
   const VISIT_KEY = "lpbd-last-visit";
-  const BIG_ZIP_BYTES = 500 * 1024 * 1024;
+  // The ZIP is built in the browser's memory, so a selection over the site's maxDownloadMB can be
+  // made but not downloaded: this message shows instead of the count and the download button.
+  const TOO_LARGE = "Selection is too large to download";
   const FETCHES_AT_ONCE = 4;
   const COUNT_SCRIPT = "https://gc.zgo.at/count.js";
   const COUNT_LOCAL_W = "asana"; // put into the address as ?w=… on localhost when it has no w
@@ -82,6 +84,8 @@
       clear: () => event("clear", "Clear selection"),
       // One hit per download, whether one file or a ZIP; the image names are in the referrer field.
       download: (images) => event("download", "Download", list(images)),
+      // Something went wrong for the visitor: `what` names the step, the message is in the referrer.
+      error: (what, message) => event(`error/${what}`, "Error", String(message).slice(0, 500)),
       // Reserved for later: no button sends these yet.
       vote: (image, up) => event(`${up ? "upvote" : "downvote"}/${bareName(image)}`, image.title),
       report: (image, reason) => event(`report/${bareName(image)}`, image.title, reason),
@@ -141,6 +145,8 @@
       showClearButton: false,
       showDownloadAllButton: false,
       rememberSelection: false,
+      showImageCounts: false,
+      maxDownloadMB: 100,
       ...raw.site,
     };
     const newSince = previousVisit();
@@ -173,14 +179,19 @@
     return { site, categories: real.length ? real : categories };
   }
 
+  // "512 KB", "1.4 MB", "12 MB", "1.4 GB", "12 GB": one decimal below 10, none from 10 up.
   function formatBytes(bytes) {
     if (!bytes) return "";
+    const unit = (value, name) => `${Math.round(value * 10) >= 100 ? Math.round(value) : value.toFixed(1)} ${name}`; // 9.96 -> "10", not "10.0"
     if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-    return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+    if (bytes < 1024 * 1024 * 1024) return unit(bytes / 1024 / 1024, "MB");
+    return unit(bytes / 1024 / 1024 / 1024, "GB");
   }
 
   const totalBytes = (images) => images.reduce((sum, image) => sum + (image.bytes || 0), 0);
+  // "Download 1.4 MB" for one file (sent as it is), "Download 12.3 MB zip" for several.
+  const downloadLabel = (images, prefix = "Download") =>
+    `${prefix} ${formatBytes(totalBytes(images))}${images.length > 1 ? " zip" : ""}`;
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
   // ---------- download ----------
@@ -311,6 +322,20 @@
   }
 
   // ---------- components ----------
+
+  // True when the media query matches, kept up to date.
+  function useMediaQuery(query) {
+    const [matches, setMatches] = useState(() => matchMedia(query).matches);
+    useEffect(() => {
+      const list = matchMedia(query);
+      const update = () => setMatches(list.matches);
+      update();
+      list.addEventListener("change", update);
+      return () => list.removeEventListener("change", update);
+    }, [query]);
+    return matches;
+  }
+  const PHONE_QUERY = "(max-width: 520px)"; // = the phone breakpoint in style.css
 
   // The grid's rows are tiny (--r) and the card takes its natural height (frame + picture box +
   // footer), so the card tells the grid how many rows it spans. Re-measured on resize.
@@ -468,10 +493,49 @@
       end: (dx, far) => (far ? slide(dx < 0 ? 1 : -1) : settle(0)),
     });
 
+    // Elastic pinch: two fingers scale the current picture around their midpoint and pan it
+    // with the midpoint (touch-action: none on the stage, so the browser does no zoom of its
+    // own); as soon as one finger lifts, the picture springs back. useSwipe drops its swipe
+    // when the second finger lands, and ignores the finger that remains.
+    const pinch = useRef(null); // {img, distance, x, y} while two fingers are down
+    const between = (touches) => {
+      const [a, b] = [touches[0], touches[1]];
+      return { distance: Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY), x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+    };
+    const pinchStart = (event) => {
+      if (event.touches.length !== 2 || pinch.current) return;
+      const img = strip.current.querySelector(".slide.current img");
+      const start = between(event.touches);
+      const box = img.getBoundingClientRect();
+      img.style.transition = "none";
+      img.style.transformOrigin = `${start.x - box.left}px ${start.y - box.top}px`;
+      pinch.current = { img, ...start };
+    };
+    const pinchMove = (event) => {
+      const p = pinch.current;
+      if (!p || event.touches.length !== 2) return;
+      const now = between(event.touches);
+      const scale = Math.min(6, Math.max(1, now.distance / p.distance));
+      p.img.style.transform = `translate(${now.x - p.x}px, ${now.y - p.y}px) scale(${scale})`;
+    };
+    const pinchEnd = (event) => {
+      const p = pinch.current;
+      if (!p || event.touches.length >= 2) return;
+      pinch.current = null;
+      p.img.style.transition = `transform ${SLIDE_MS}ms ease-out`;
+      p.img.style.transform = "";
+    };
+    const stage = {
+      onTouchStart: (event) => (swipe.onTouchStart(event), pinchStart(event)),
+      onTouchMove: (event) => (swipe.onTouchMove(event), pinchMove(event)),
+      onTouchEnd: (event) => (swipe.onTouchEnd(event), pinchEnd(event)),
+      onTouchCancel: (event) => (swipe.onTouchCancel(event), pinchEnd(event)),
+    };
+
     const facts = [image.w && `${image.w} × ${image.h}`, formatBytes(image.bytes)].filter(Boolean).join(" · ");
     return html`
       <div className="lightbox" role="dialog" aria-modal="true" aria-label=${image.title}>
-        <div className="stage" ...${swipe}>
+        <div className="stage" ...${stage}>
           <div className="strip" ref=${strip}>
             ${(count > 1 ? PLACES : PLACES.slice(1, 2)).map(([step, place]) => {
               const shown = neighbor(step);
@@ -483,6 +547,7 @@
               `;
             })}
           </div>
+          <button className="back" onClick=${onClose}>‹ Back</button>
           ${count > 1 &&
           html`
             <button className="nav prev" onClick=${() => slide(-1)} aria-label="Previous image">‹</button>
@@ -494,10 +559,10 @@
             <strong>${image.title}</strong>
             <span>${index + 1} / ${images.length}${facts && ` · ${facts}`}</span>
           </div>
+          <button className="primary" onClick=${() => onDownload([image])}>Download</button>
           <button className=${selected ? "on" : ""} onClick=${() => onToggle(image, "lightbox")}>
             ${selected ? "✓ Selected" : "Select"}
           </button>
-          <button onClick=${() => onDownload([image])}>Download</button>
           <button className="close" onClick=${onClose} aria-label="Close">✕</button>
         </div>
       </div>
@@ -507,7 +572,7 @@
   // The tab strip scrolls sideways when it does not fit (phones), and nothing shows that by
   // itself (its scrollbar is hidden). So a ≪ or ≫ overlays the edge behind which more tabs hide;
   // tapping it scrolls most of a screenful that way. The active tab is kept in view.
-  function Tabs({ categories, category, go }) {
+  function Tabs({ categories, category, go, showCounts }) {
     const ref = useRef(null);
     const [more, setMore] = useState({ left: false, right: false });
     useEffect(() => {
@@ -526,8 +591,14 @@
         observer.disconnect();
       };
     }, [categories]);
+    // Scrolls the strip so that the active tab is in the middle (as far as the ends allow), so
+    // it is never under a ≪ / ≫ overlay. A no-op when every tab fits.
     useEffect(() => {
-      ref.current.querySelector(".active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+      const nav = ref.current;
+      const tab = nav.querySelector(".active");
+      if (!tab) return;
+      const left = tab.getBoundingClientRect().left - nav.getBoundingClientRect().left + nav.scrollLeft;
+      nav.scrollTo({ left: left + tab.offsetWidth / 2 - nav.clientWidth / 2, behavior: "smooth" });
     }, [category]);
     const scroll = (direction) => ref.current.scrollBy({ left: direction * ref.current.clientWidth * 0.7, behavior: "smooth" });
 
@@ -545,7 +616,7 @@
                 className=${c === category ? "active" : ""}
                 onClick=${() => c !== category && go(c.folder, null)}
               >
-                ${c.title}<span className="count">${c.images.length}</span>
+                ${c.title}${showCounts && html`<span className="count">${c.images.length}</span>`}
                 ${fresh > 0 && html`<span className="fresh" title=${`${fresh} new`}>+${fresh}</span>`}
               </button>
             `;
@@ -563,6 +634,8 @@
     const [failure, setFailure] = useState(null);
     const [route, go] = useRoute();
     const { selection, toggle, setMany, clear, keepOnly } = useSelection(gallery ? Boolean(gallery.site.rememberSelection) : null);
+    const maxBytes = gallery ? gallery.site.maxDownloadMB * 1024 * 1024 : Infinity;
+    const phone = useMediaQuery(PHONE_QUERY);
 
     useEffect(() => {
       // gallery+.jsonc, when it exists, is used instead of gallery.jsonc (generate.py does the same).
@@ -647,12 +720,13 @@
       async (images, zipName) => {
         if (busy || !images.length) return;
         const size = totalBytes(images);
-        if (size > BIG_ZIP_BYTES && !confirm(`This ZIP will be about ${formatBytes(size)} and is built in your browser's memory. Continue?`)) return;
+        if (size > maxBytes) return; // the buttons are hidden then; this is only a safety net
         setFailure(null);
         try {
           await downloadImages(images, zipName, setBusy);
         } catch (error) {
           setFailure(`Download failed: ${error.message || error}`);
+          track.error("download", error.message || error);
         }
         setBusy(null);
       },
@@ -675,60 +749,70 @@
 
     const selected = allImages.filter((image) => selection.has(image.id));
     const selectedHere = category.images.filter((image) => selection.has(image.id)).length;
-    const allHereSelected = selectedHere === category.images.length;
+    const noneHere = selectedHere === 0; // the button selects all of this tab, or deselects all of it as soon as one is selected
     const siteSlug = slug(gallery.site.title);
+
+    // The section controls: the status block and the buttons. In the toolbar on desktop; on
+    // phones a bar fixed at the bottom of the screen, rendered after main (main is what the tab
+    // swipe moves, and a transformed ancestor would carry a fixed bar along).
+    const tooLarge = totalBytes(selected) > maxBytes; // then the message replaces the count and the download button
+    const actions = html`
+      <div className=${phone ? "actions bar" : "actions"}>
+        ${(failure || busy || selected.length > 0) &&
+        html`
+          <div className="status">
+            ${tooLarge && html`<span className="failure">${TOO_LARGE}</span>`}
+            ${failure && html`<span className="failure">${failure}</span>`}
+            ${busy
+              ? html`<span className="muted">${busy}</span>`
+              : !tooLarge &&
+                selected.length > 0 &&
+                html`
+                  <span><strong>${plural(selected.length, "image")}</strong> selected</span>
+                  ${selected.length > selectedHere && html`<span className="muted">(${selected.length - selectedHere} in other tabs)</span>`}
+                `}
+          </div>
+        `}
+        <div className="buttons">
+          ${gallery.site.showClearButton && selected.length > 0 && html`<button onClick=${() => (track.clear(), clear())}>Clear</button>`}
+          ${tooLarge
+            ? null
+            : selected.length > 0
+            ? html`
+                <button className="primary" disabled=${Boolean(busy)} onClick=${() => download(selected, `${siteSlug}-${selected.length}-images.zip`)}>
+                  ${downloadLabel(selected)}
+                </button>
+              `
+            : gallery.site.showDownloadAllButton &&
+              totalBytes(category.images) <= maxBytes &&
+              html`
+                <button className="primary" disabled=${Boolean(busy)} onClick=${() => download(category.images, `${slug(category.title)}.zip`)}>
+                  ${downloadLabel(category.images, "Download all")}
+                </button>
+              `}
+          <button
+            onClick=${() => {
+              track.selectAll(category, noneHere);
+              setMany(category.images.map((image) => image.id), noneHere);
+            }}
+          >
+            ${noneHere ? "Select all" : "Deselect all"}
+          </button>
+          ${failure && !busy && html`<button onClick=${() => setFailure(null)}>Dismiss</button>`}
+        </div>
+      </div>
+    `;
 
     return html`
       <header className="top">
-        <img className="logo" src="logo-small.png" alt=${gallery.site.title} />
-        <${Tabs} categories=${gallery.categories} category=${category} go=${go} />
+        <img className="logo" src="logo-small-borderless-transparent.png" alt=${gallery.site.title} />
+        <${Tabs} categories=${gallery.categories} category=${category} go=${go} showCounts=${gallery.site.showImageCounts} />
       </header>
 
       <main ref=${main} ...${swipeTabs}>
         <div className="toolbar">
           ${(category.description || gallery.site.description) && html`<p>${category.description || gallery.site.description}</p>`}
-          <div className="actions">
-            <div className="buttons">
-              ${gallery.site.showClearButton && selected.length > 0 && html`<button onClick=${() => (track.clear(), clear())}>Clear</button>`}
-              <button
-                onClick=${() => {
-                  track.selectAll(category, !allHereSelected);
-                  setMany(category.images.map((image) => image.id), !allHereSelected);
-                }}
-              >
-                ${allHereSelected ? "Deselect all" : "Select all"}
-              </button>
-              ${selected.length > 0
-                ? html`
-                    <button className="primary" disabled=${Boolean(busy)} onClick=${() => download(selected, `${siteSlug}-${selected.length}-images.zip`)}>
-                      Download
-                    </button>
-                  `
-                : gallery.site.showDownloadAllButton &&
-                  html`
-                    <button className="primary" disabled=${Boolean(busy)} onClick=${() => download(category.images, `${slug(category.title)}.zip`)}>
-                      Download all
-                    </button>
-                  `}
-              ${failure && !busy && html`<button onClick=${() => setFailure(null)}>Dismiss</button>`}
-            </div>
-            ${(failure || busy || selected.length > 0) &&
-            html`
-              <div className="status">
-                ${failure && html`<span className="failure">${failure}</span>`}
-                ${busy
-                  ? html`<span className="muted">${busy}</span>`
-                  : selected.length > 0 &&
-                    html`
-                      <span>
-                        <strong>${plural(selected.length, "image")}</strong> selected
-                        ${selected.length > selectedHere && html`<span className="muted"> (${selected.length - selectedHere} in other tabs)</span>`}
-                        <span className="muted"> · ${formatBytes(totalBytes(selected))}</span>
-                      </span>
-                    `}
-              </div>
-            `}
-          </div>
+          ${!phone && actions}
         </div>
 
         <div className="grid">
@@ -737,6 +821,7 @@
           )}
         </div>
       </main>
+      ${phone && actions}
 
       ${openImage &&
       html`

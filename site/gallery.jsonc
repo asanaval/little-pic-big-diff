@@ -11,11 +11,13 @@
     "showClearButton": false,
     "showDownloadAllButton": false,
     "rememberSelection": false,
+    "showImageCounts": false,
+    "maxDownloadMB": 100,
   },
   "categories": [
     {
       "folder": "z-demo-characters",
-      "title": "Demo Characters",
+      "title": "Characters",
       "description": "",
       "images": [
         {"file": "sample_piece-01.jpg", "title": "Sample Piece 01", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 80687},
@@ -39,7 +41,7 @@
     },
     {
       "folder": "z-demo-landscapes",
-      "title": "Demo Landscapes",
+      "title": "Landscapes",
       "description": "",
       "images": [
         {"file": "sample_piece-01.jpg", "title": "Sample Piece 01", "tags": [], "added": "2026-09-21", "w": 2100, "h": 1530, "bytes": 88319},
@@ -51,6 +53,71 @@
         {"file": "sample_piece-07.jpg", "title": "Sample Piece 07", "tags": [], "added": "2026-09-21", "w": 2100, "h": 1530, "bytes": 78482},
         {"file": "sample_piece-08.jpg", "title": "Sample Piece 08", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 90414},
         {"file": "sample_piece-09.jpg", "title": "Sample Piece 09", "tags": [], "added": "2026-09-21", "w": 1530, "h": 2100, "bytes": 65962},
+      ],
+    },
+    {
+      "folder": "z-demo-confetti",
+      "title": "Confetti",
+      "description": "",
+      "images": [
+        {"file": "sample_01.jpg", "title": "Sample 01", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 123958},
+        {"file": "sample_02.jpg", "title": "Sample 02", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 133392},
+        {"file": "sample_03.jpg", "title": "Sample 03", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 118329},
+        {"file": "sample_04.jpg", "title": "Sample 04", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 118018},
+      ],
+    },
+    {
+      "folder": "z-demo-gradients",
+      "title": "Gradients",
+      "description": "",
+      "images": [
+        {"file": "sample_01.jpg", "title": "Sample 01", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 102350},
+        {"file": "sample_02.jpg", "title": "Sample 02", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 98007},
+        {"file": "sample_03.jpg", "title": "Sample 03", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 97571},
+        {"file": "sample_04.jpg", "title": "Sample 04", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 100467},
+        {"file": "sample_05.jpg", "title": "Sample 05", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 100181},
+      ],
+    },
+    {
+      "folder": "z-demo-patterns",
+      "title": "Patterns",
+      "description": "",
+      "images": [
+        {"file": "sample_01.jpg", "title": "Sample 01", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 117773},
+        {"file": "sample_02.jpg", "title": "Sample 02", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 285939},
+        {"file": "sample_03.jpg", "title": "Sample 03", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 295087},
+        {"file": "sample_04.jpg", "title": "Sample 04", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 321488},
+      ],
+    },
+    {
+      "folder": "z-demo-shapes",
+      "title": "Shapes",
+      "description": "",
+      "images": [
+        {"file": "sample_01.jpg", "title": "Sample 01", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 139144},
+        {"file": "sample_02.jpg", "title": "Sample 02", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 138598},
+        {"file": "sample_03.jpg", "title": "Sample 03", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 117282},
+      ],
+    },
+    {
+      "folder": "z-demo-skies",
+      "title": "Skies",
+      "description": "",
+      "images": [
+        {"file": "sample_01.jpg", "title": "Sample 01", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 100742},
+        {"file": "sample_02.jpg", "title": "Sample 02", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 92098},
+        {"file": "sample_03.jpg", "title": "Sample 03", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 89060},
+        {"file": "sample_04.jpg", "title": "Sample 04", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 97111},
+        {"file": "sample_05.jpg", "title": "Sample 05", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 105420},
+      ],
+    },
+    {
+      "folder": "z-demo-tiles",
+      "title": "Tiles",
+      "description": "",
+      "images": [
+        {"file": "sample_01.jpg", "title": "Sample 01", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 318142},
+        {"file": "sample_02.jpg", "title": "Sample 02", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 107587},
       ],
     },
   ],
