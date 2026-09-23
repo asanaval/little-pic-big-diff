@@ -18,7 +18,7 @@
 
 * { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; overscroll-behavior: none; } /* no pull-to-refresh or bounce: a downward drag is the app's */
 
 body {
   margin: 0;
@@ -27,7 +27,8 @@ body {
   font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-body.locked { overflow: hidden; }
+/* While the lightbox is open (see its effect in app.js): the page cannot scroll, on iOS either. */
+body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
 
 button {
   font: inherit;

@@ -372,7 +372,7 @@
   });
 
   // Touch handlers (to spread on an element) recognizing a one-finger horizontal swipe. The
-  // first 8 px of a move decide whether it is sideways (ours) or vertical (the browser's, a
+  // first move decides whether it is sideways (ours) or vertical (the browser's, a
   // scroll); a second finger (a pinch zoom, the browser's too) drops it. `allowed()` is asked at
   // the touch; `drag(dx)` follows the finger; `end(dx, far)` gets the release, `far` when the
   // drag passed a quarter of the element's width or was a quick flick; a dropped swipe ends
@@ -380,6 +380,33 @@
   // quarter of the height); without them a vertical move is left alone (a scroll).
   function useSwipe({ allowed = () => true, drag, end, dragY, endY }) {
     const touch = useRef(null); // {x, y, t, axis} while a finger is down
+    // `ref` (to put on the element) adds a native, non-passive touchmove listener that prevents
+    // the default once the move is ours (React's own touch listeners are passive, so they
+    // cannot): otherwise the browser still runs a gesture of its own on the drag, and a tap
+    // right after it is swallowed. A vertical move not handled here stays a scroll.
+    const handled = useRef({ dragY });
+    handled.current.dragY = dragY;
+    // The axis is decided on the first real move: browsers send it only past their own slop
+    // distance, and it is the last one whose default can still be prevented (Chrome then has
+    // a scroll gesture running that a later preventDefault cannot cancel). The native listener
+    // below runs before React's handler (it sits on the element, React's on the root), so it
+    // must decide for itself rather than wait for onTouchMove.
+    const decide = (d, dx, dy) => {
+      if (d.axis || (Math.abs(dx) < 3 && Math.abs(dy) < 3)) return;
+      d.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    };
+    const block = useCallback((event) => {
+      const d = touch.current;
+      if (!d) return;
+      if (event.touches.length === 1) decide(d, event.touches[0].clientX - d.x, event.touches[0].clientY - d.y);
+      if (d.axis === "x" || (d.axis === "y" && handled.current.dragY)) event.preventDefault();
+    }, []);
+    const bound = useRef(null);
+    const ref = useCallback((el) => {
+      if (bound.current) bound.current.removeEventListener("touchmove", block);
+      bound.current = el;
+      if (el) el.addEventListener("touchmove", block, { passive: false });
+    }, [block]);
     const cancel = () => {
       const d = touch.current;
       if (d && d.axis === "x") end(0, false);
@@ -399,10 +426,8 @@
       const t = event.touches[0];
       const dx = t.clientX - d.x;
       const dy = t.clientY - d.y;
-      if (!d.axis) {
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-        d.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-      }
+      decide(d, dx, dy);
+      if (!d.axis) return;
       if (d.axis === "x" && drag) drag(dx);
       if (d.axis === "y" && dragY) dragY(dy);
     };
@@ -419,18 +444,27 @@
       const far = Math.abs(moved) > extent / 4 || (speed > 0.5 && Math.abs(moved) > 20);
       (vertical ? endY : end)(moved, far);
     };
-    return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: cancel };
+    return { ref, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: cancel };
   }
 
   // Moves `el` to translateX(`target` px) with a transition (none under prefers-reduced-motion,
   // or when it is there already), then runs `then`. `el` is left at the target: `unglide` puts it
   // back, at once, with no transition.
+  // Arrivals (an image settling in place) ease out; departures (a section or the lightbox
+  // leaving the screen) are shorter and ease in, so they are gone quickly and what follows
+  // (the navigation, then the new render) starts sooner.
   const SLIDE_MS = 250;
-  function glide(el, target, then, axis = "X") {
-    const duration = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : SLIDE_MS;
+  const LEAVE = { ms: 180, easing: "ease-in" };
+  function glide(el, target, then, { axis = "X", ms = SLIDE_MS, easing = "ease-out" } = {}) {
+    const duration = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms;
     if (!duration || el.style.transform === `translate${axis}(${target}px)`) return then();
-    el.addEventListener("transitionend", then, { once: true });
-    el.style.transition = `transform ${duration}ms ease-out`;
+    const done = (event) => {
+      if (event.target !== el) return; // a descendant's transition (transitionend bubbles)
+      el.removeEventListener("transitionend", done);
+      then();
+    };
+    el.addEventListener("transitionend", done);
+    el.style.transition = `transform ${duration}ms ${easing}`;
     el.style.transform = `translate${axis}(${target}px)`;
   }
   function unglide(el) {
@@ -489,9 +523,24 @@
       return () => window.removeEventListener("keydown", onKey);
     });
 
+    // The page behind is locked in place (body position: fixed, its scroll offset kept as a
+    // negative top and restored on close): overflow: hidden alone does not stop iOS Safari
+    // from scrolling the document under a touch drag, and a page left scrolling with momentum
+    // swallows the next taps. Touch moves on the stage are also blocked at the native level
+    // (React's own touch listeners are passive), so none of the drag reaches the page.
     useEffect(() => {
+      const y = window.scrollY;
       document.body.classList.add("locked");
-      return () => document.body.classList.remove("locked");
+      document.body.style.top = `-${y}px`;
+      const stageEl = strip.current.parentElement;
+      const block = (event) => event.preventDefault();
+      stageEl.addEventListener("touchmove", block, { passive: false });
+      return () => {
+        stageEl.removeEventListener("touchmove", block);
+        document.body.classList.remove("locked");
+        document.body.style.top = "";
+        window.scrollTo(0, y);
+      };
     }, []);
 
     // On phones the lightbox is a sheet: it rises from the bottom (CSS animation) and a downward
@@ -524,7 +573,10 @@
       end: (dx, far) => (far ? slide(dx < 0 ? 1 : -1) : settle(0)),
       dragY: phone ? (dy) => follow(sheet.current, Math.max(0, dy), "Y") : undefined,
       endY: phone
-        ? (dy, far) => (far && dy > 0 ? glide(sheet.current, sheet.current.clientHeight, onClose, "Y") : glide(sheet.current, 0, () => unglide(sheet.current), "Y"))
+        ? (dy, far) =>
+            far && dy > 0
+              ? glide(sheet.current, sheet.current.clientHeight, onClose, { axis: "Y", ...LEAVE })
+              : glide(sheet.current, 0, () => unglide(sheet.current), { axis: "Y" })
         : undefined,
     });
 
@@ -709,14 +761,16 @@
     const switchTab = (step) => {
       const next = step !== 0 && gallery.categories[gallery.categories.indexOf(category) + step]; // 0: spring back
       leaving.current = true;
-      if (next) glide(main.current, -step * main.current.clientWidth, () => go(next.folder, null));
+      if (next) glide(main.current, -step * main.current.clientWidth, () => go(next.folder, null), LEAVE);
       else glide(main.current, 0, () => (unglide(main.current), (leaving.current = false)));
     };
-    const swipeTabs = useSwipe({
+    // (`ref` is taken out: spread with the handlers it would override main's own ref.)
+    const { ref: bindSwipe, ...swipeTabs } = useSwipe({
       allowed: () => !leaving.current,
       drag: (dx) => follow(main.current, dx),
       end: (dx, far) => (far ? switchTab(dx < 0 ? 1 : -1) : switchTab(0)),
     });
+    const mainRef = useCallback((el) => ((main.current = el), bindSwipe(el)), [bindSwipe]);
     useLayoutEffect(() => {
       if (leaving.current && main.current) {
         unglide(main.current);
@@ -749,12 +803,13 @@
       track.view(openImage ? urlPath(openImage.folder, openImage.file) : urlPath(category.folder), shown.title);
     }, [shown]);
 
-    const open = useCallback((image) => go(image.folder, image.file, { state: { openedHere: true } }), [go]);
-    const moveTo = useCallback((image) => go(image.folder, image.file, { replace: true, state: history.state }), [go]);
-    const close = useCallback(() => {
-      if (history.state && history.state.openedHere) history.back();
-      else go(category.folder, null, { replace: true });
-    }, [go, category]);
+    const open = useCallback((image) => go(image.folder, image.file), [go]);
+    const moveTo = useCallback((image) => go(image.folder, image.file, { replace: true }), [go]);
+    // Closing replaces the image's history entry with the tab rather than popping it: a pop
+    // (history.back()) lands some time later on phones, and until then it would undo a tap on
+    // another image or a tab swipe made in the meantime. The tab entry is then there twice, so
+    // leaving the site costs one more Back press; the phone's Back still closes an open image.
+    const close = useCallback(() => go(category.folder, null, { replace: true }), [go, category]);
 
     const download = useCallback(
       async (images, zipName) => {
@@ -849,7 +904,7 @@
         <${Tabs} categories=${gallery.categories} category=${category} go=${go} showCounts=${gallery.site.showImageCounts} />
       </header>
 
-      <main ref=${main} ...${swipeTabs}>
+      <main ref=${mainRef} ...${swipeTabs}>
         <div className="toolbar">
           ${(category.description || gallery.site.description) && html`<p>${category.description || gallery.site.description}</p>`}
           ${!phone && actions}

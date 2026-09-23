@@ -118,11 +118,17 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   tap on a touch screen leaves none stuck. ← / → (with the lightbox closed) and, on touch
   screens, a sideways swipe anywhere under the header (`main` fills the rest of the screen,
   blank space included) go to the previous/next tab, with no wrap-around at the ends
-  (`switchTab`; `useSwipe` is the swipe recognizer shared with the lightbox:
-  the first 8 px of a touch move decide between sideways and vertical, a second finger drops
+  (`switchTab`; `useSwipe` is the swipe recognizer shared with the lightbox; its `ref` adds a
+  native non-passive touchmove listener that decides the axis itself (it runs before React's
+  handler) and prevents the default once the move is ours, so the browser runs no gesture of
+  its own on it, not even a vertical fling from a slightly diagonal drag, whose momentum would
+  swallow the next tap:
+  the first real touch move decides between sideways and vertical (the only move whose default
+  can still be prevented before Chrome runs a scroll gesture), a second finger drops
   the swipe, and it counts when it passed a quarter of the width or was a quick flick,
   > 0.5 px/ms over > 20 px). `main` follows the finger and, when the swipe counts (or on a
-  key), glides off the screen (`glide`, 250 ms, none under `prefers-reduced-motion`); the new
+  key), glides off the screen (`glide`, 180 ms ease-in: departures are quick and accelerate,
+  arrivals take 250 ms and ease out; none under `prefers-reduced-motion`); the new
   tab then renders in its place without animation (nothing is pre-rendered), `main` being put
   back in a layout effect before that paints. Otherwise `main` springs back.
 - **Selection** is kept across tabs. With `rememberSelection` on it is also stored in
@@ -152,9 +158,17 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   (a failed download) have a Dismiss button. This needs same-origin images (true on GitHub
   Pages). Progress ("Fetching 3 of 10", "Zipping 40%") shows in the toolbar.
 - **Addresses**: `#folder` = tab, `#folder/file` = that image open in the lightbox. Opening an
-  image pushes a history entry (Back closes it); previous/next replace it.
+  image pushes a history entry (Back closes it); previous/next replace it. Closing (✕, Esc,
+  Back button, swipe down) replaces that entry with the tab instead of popping it: a pop lands
+  some time later on phones and would meanwhile undo a tap on another image or a tab swipe.
+  The tab entry is thus there twice, so leaving the site takes one more Back press.
 - **Lightbox**: the original file with the thumbnail as placeholder, ←/→, Esc, Space = select,
-  "‹ Back" at the top left (closes it, like ✕ and Esc); the bar under the picture: title and
+  "‹ Back" at the top left (closes it, like ✕ and Esc). While it is open the page behind is
+  locked in place (`body.locked`: `position: fixed` with the scroll offset kept as a negative
+  `top` and restored on close, since `overflow: hidden` alone does not stop iOS Safari from
+  scrolling under a touch drag; touch moves on the stage are also blocked with a non-passive
+  listener, React's own being passive), so no drag leaks into a page scroll whose momentum
+  would swallow the next taps. The bar under the picture: title and
   facts, the blue Download (that one file), Select / ✓ Selected, ✕. On phones (≤ 520 px) it is
   a sheet instead: it rises from the bottom (`rise` animation), a downward swipe on the
   picture drags it along and, past a
