@@ -376,11 +376,14 @@
   // scroll); a second finger (a pinch zoom, the browser's too) drops it. `allowed()` is asked at
   // the touch; `drag(dx)` follows the finger; `end(dx, far)` gets the release, `far` when the
   // drag passed a quarter of the element's width or was a quick flick; a dropped swipe ends
-  // with `end(0, false)`.
-  function useSwipe({ allowed = () => true, drag, end }) {
+  // with `end(0, false)`. `dragY` / `endY`, when given, do the same for a vertical move (a
+  // quarter of the height); without them a vertical move is left alone (a scroll).
+  function useSwipe({ allowed = () => true, drag, end, dragY, endY }) {
     const touch = useRef(null); // {x, y, t, axis} while a finger is down
     const cancel = () => {
-      if (touch.current && touch.current.axis === "x") end(0, false);
+      const d = touch.current;
+      if (d && d.axis === "x") end(0, false);
+      if (d && d.axis === "y" && endY) endY(0, false);
       touch.current = null;
     };
     const onTouchStart = (event) => {
@@ -401,15 +404,20 @@
         d.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
       }
       if (d.axis === "x" && drag) drag(dx);
+      if (d.axis === "y" && dragY) dragY(dy);
     };
     const onTouchEnd = (event) => {
       const d = touch.current;
       touch.current = null;
-      if (!d || d.axis !== "x") return;
-      const dx = event.changedTouches[0].clientX - d.x;
-      const speed = Math.abs(dx) / (performance.now() - d.t); // px per ms
-      const far = Math.abs(dx) > event.currentTarget.clientWidth / 4 || (speed > 0.5 && Math.abs(dx) > 20);
-      end(dx, far);
+      if (!d || !d.axis) return;
+      const t = event.changedTouches[0];
+      const vertical = d.axis === "y";
+      if (vertical && !endY) return;
+      const moved = vertical ? t.clientY - d.y : t.clientX - d.x;
+      const extent = vertical ? event.currentTarget.clientHeight : event.currentTarget.clientWidth;
+      const speed = Math.abs(moved) / (performance.now() - d.t); // px per ms
+      const far = Math.abs(moved) > extent / 4 || (speed > 0.5 && Math.abs(moved) > 20);
+      (vertical ? endY : end)(moved, far);
     };
     return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: cancel };
   }
@@ -418,20 +426,20 @@
   // or when it is there already), then runs `then`. `el` is left at the target: `unglide` puts it
   // back, at once, with no transition.
   const SLIDE_MS = 250;
-  function glide(el, target, then) {
+  function glide(el, target, then, axis = "X") {
     const duration = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : SLIDE_MS;
-    if (!duration || el.style.transform === `translateX(${target}px)`) return then();
+    if (!duration || el.style.transform === `translate${axis}(${target}px)`) return then();
     el.addEventListener("transitionend", then, { once: true });
     el.style.transition = `transform ${duration}ms ease-out`;
-    el.style.transform = `translateX(${target}px)`;
+    el.style.transform = `translate${axis}(${target}px)`;
   }
   function unglide(el) {
     el.style.transition = "none";
     el.style.transform = "";
   }
-  const follow = (el, dx) => {
+  const follow = (el, offset, axis = "X") => {
     el.style.transition = "none";
-    el.style.transform = `translateX(${dx}px)`;
+    el.style.transform = `translate${axis}(${offset}px)`;
   };
 
   // The lightbox stage is a strip of three slides (previous, current, next) that follows the
@@ -486,10 +494,38 @@
       return () => document.body.classList.remove("locked");
     }, []);
 
+    // On phones the lightbox is a sheet: it rises from the bottom (CSS animation) and a downward
+    // swipe on the stage drags it along and, past a quarter of the height or with a flick,
+    // glides it out and closes it; otherwise it springs back.
+    const phone = useMediaQuery(PHONE_QUERY);
+    const sheet = useRef(null);
+
+    // On phones, a landscape picture on a portrait phone (or a portrait one on a landscape
+    // phone) can be turned to fill the screen: 90° right for a landscape picture, 90° left for
+    // a portrait one, and back on the next tap. The current slide is given the stage's size
+    // with width and height swapped, then rotated about its center. A new image or a turn of
+    // the phone puts it back.
+    const landscapePhone = useMediaQuery("(orientation: landscape)");
+    const mismatch = phone && (image.shape === "landscape") !== landscapePhone;
+    const [turned, setTurned] = useState(null); // {w, h}: the stage's size when turned, else null
+    useEffect(() => setTurned(null), [image, landscapePhone]);
+    const angle = turned && mismatch ? (image.shape === "landscape" ? 90 : -90) : 0;
+    const rotation = useRef(0);
+    rotation.current = angle;
+    const turn = () => setTurned(turned ? null : { w: strip.current.clientWidth, h: strip.current.clientHeight });
+    const turnedStyle = angle
+      ? { width: `${turned.h}px`, height: `${turned.w}px`, left: `${(turned.w - turned.h) / 2}px`, top: `${(turned.h - turned.w) / 2}px`, right: "auto", bottom: "auto", transform: `rotate(${angle}deg)` }
+      : null;
+    // A screen offset or point, in the (possibly rotated) picture's own coordinates.
+    const toLocal = (dx, dy) => (rotation.current === 90 ? [dy, -dx] : rotation.current === -90 ? [-dy, dx] : [dx, dy]);
     const swipe = useSwipe({
       allowed: () => count > 1 && !sliding.current,
       drag: (dx) => follow(strip.current, dx),
       end: (dx, far) => (far ? slide(dx < 0 ? 1 : -1) : settle(0)),
+      dragY: phone ? (dy) => follow(sheet.current, Math.max(0, dy), "Y") : undefined,
+      endY: phone
+        ? (dy, far) => (far && dy > 0 ? glide(sheet.current, sheet.current.clientHeight, onClose, "Y") : glide(sheet.current, 0, () => unglide(sheet.current), "Y"))
+        : undefined,
     });
 
     // Elastic pinch: two fingers scale the current picture around their midpoint and pan it
@@ -506,8 +542,9 @@
       const img = strip.current.querySelector(".slide.current img");
       const start = between(event.touches);
       const box = img.getBoundingClientRect();
+      const [ox, oy] = toLocal(start.x - (box.left + box.width / 2), start.y - (box.top + box.height / 2));
       img.style.transition = "none";
-      img.style.transformOrigin = `${start.x - box.left}px ${start.y - box.top}px`;
+      img.style.transformOrigin = `${ox + img.offsetWidth / 2}px ${oy + img.offsetHeight / 2}px`;
       pinch.current = { img, ...start };
     };
     const pinchMove = (event) => {
@@ -515,7 +552,8 @@
       if (!p || event.touches.length !== 2) return;
       const now = between(event.touches);
       const scale = Math.min(6, Math.max(1, now.distance / p.distance));
-      p.img.style.transform = `translate(${now.x - p.x}px, ${now.y - p.y}px) scale(${scale})`;
+      const [tx, ty] = toLocal(now.x - p.x, now.y - p.y);
+      p.img.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
     };
     const pinchEnd = (event) => {
       const p = pinch.current;
@@ -533,20 +571,23 @@
 
     const facts = [image.w && `${image.w} × ${image.h}`, formatBytes(image.bytes)].filter(Boolean).join(" · ");
     return html`
-      <div className="lightbox" role="dialog" aria-modal="true" aria-label=${image.title}>
+      <div className="lightbox" role="dialog" aria-modal="true" aria-label=${image.title} ref=${sheet}>
         <div className="stage" ...${stage}>
           <div className="strip" ref=${strip}>
             ${(count > 1 ? PLACES : PLACES.slice(1, 2)).map(([step, place]) => {
               const shown = neighbor(step);
               // With two images the same one is on both sides, so its key needs the place too.
               return html`
-                <div key=${count > 2 ? shown.id : `${shown.id}@${place}`} className=${`slide ${place}`}>
+                <div key=${count > 2 ? shown.id : `${shown.id}@${place}`} className=${`slide ${place}`} style=${place === "current" ? turnedStyle : null}>
                   <img src=${shown.src} alt=${shown.title} draggable=${false} style=${{ backgroundImage: `url("${shown.thumb}")` }} />
                 </div>
               `;
             })}
           </div>
-          <button className="back" onClick=${onClose}>‹ Back</button>
+          ${phone
+            ? html`<button className="close-top" onClick=${onClose} aria-label="Close">✕</button>`
+            : html`<button className="back" onClick=${onClose}>‹ Back</button>`}
+          ${mismatch && html`<button className="turn-top" onClick=${turn} aria-label=${angle ? "Turn back" : "Turn"}>${(image.shape === "landscape") !== Boolean(angle) ? "↻" : "↺"}</button>`}
           ${count > 1 &&
           html`
             <button className="nav prev" onClick=${() => slide(-1)} aria-label="Previous image">‹</button>
@@ -562,7 +603,7 @@
           <button className=${selected ? "on" : ""} onClick=${() => onToggle(image, "lightbox")}>
             ${selected ? "✓ Selected" : "Select"}
           </button>
-          <button className="close" onClick=${onClose} aria-label="Close">✕</button>
+          ${!phone && html`<button className="close" onClick=${onClose} aria-label="Close">✕</button>`}
         </div>
       </div>
     `;
@@ -613,7 +654,7 @@
                 role="tab"
                 aria-selected=${c === category}
                 className=${c === category ? "active" : ""}
-                onClick=${() => c !== category && go(c.folder, null)}
+                onClick=${(event) => (event.currentTarget.blur(), c !== category && go(c.folder, null))}
               >
                 ${c.title}${showCounts && html`<span className="count">${c.images.length}</span>`}
                 ${fresh > 0 && html`<span className="fresh" title=${`${fresh} new`}>+${fresh}</span>`}

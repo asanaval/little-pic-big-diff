@@ -113,7 +113,9 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   scrollbar hidden, so a ≪ or ≫ is overlaid on the edge behind which more tabs hide (checked on
   scroll and on resize); tapping it scrolls 70 % of the strip's width that way. The active tab
   is scrolled to the middle of the strip when it changes (as far as the ends allow), so it
-  never sits under a marker. ← / → (with the lightbox closed) and, on touch
+  never sits under a marker. A clicked tab is blurred at once, so no focus ring lingers on it
+  after an arrow key or a swipe moves on; hover styles apply only under `(hover: hover)`, so a
+  tap on a touch screen leaves none stuck. ← / → (with the lightbox closed) and, on touch
   screens, a sideways swipe anywhere under the header (`main` fills the rest of the screen,
   blank space included) go to the previous/next tab, with no wrap-around at the ends
   (`switchTab`; `useSwipe` is the swipe recognizer shared with the lightbox:
@@ -153,7 +155,17 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   image pushes a history entry (Back closes it); previous/next replace it.
 - **Lightbox**: the original file with the thumbnail as placeholder, ←/→, Esc, Space = select,
   "‹ Back" at the top left (closes it, like ✕ and Esc); the bar under the picture: title and
-  facts, the blue Download (that one file), Select / ✓ Selected, ✕. Pinch zoom is elastic:
+  facts, the blue Download (that one file), Select / ✓ Selected, ✕. On phones (≤ 520 px) it is
+  a sheet instead: it rises from the bottom (`rise` animation), a downward swipe on the
+  picture drags it along and, past a
+  quarter of the height or with a flick, glides it out and closes it (else it springs back;
+  `useSwipe`'s `dragY` / `endY`), and an icon-only ✕ at the top right of the picture replaces
+  both "‹ Back" and the bar's ✕. When the picture's orientation is not the phone's (a
+  landscape picture on a portrait phone, or the reverse), an icon-only ↻ / ↺ left of the ✕
+  turns it to fill the screen, 90° right for a landscape picture and 90° left for a portrait
+  one, and back on the next tap: the current slide gets the stage's size with width and
+  height swapped and is rotated about its center; a new image or a turn of the phone puts it
+  back, and the pinch maps its offsets into the turned picture's coordinates. Pinch zoom is elastic:
   two fingers scale the current picture around their midpoint (up to 6×) and pan it with the
   midpoint, and it springs back as soon as one finger lifts (the stage has `touch-action:
   none`, so the browser never zooms the page there). The page itself (header, `main`) has
