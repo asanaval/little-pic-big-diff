@@ -98,7 +98,7 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   below it. Accepted costs: small holes, and the browser moves later images up into gaps, so the
   visual order can differ from the JSON order (the lightbox follows the JSON order). At ≤ 520 px
   the grid is exactly 40 columns wide (landscape + 2 portraits, or 3 portraits) with a 5 px frame
-  and a 22 px footer.
+  and a 32 px footer (taller than on desktop: a finger-sized target for selecting).
 - **"New"** is per visitor: an image is new when its `added` date is later than the visitor's
   previous visit (`localStorage` `lpbd-last-visit`, fixed for the tab's lifetime in
   `sessionStorage` so a reload keeps the badges). A first visit shows no badges.
@@ -124,7 +124,8 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
 - **Lightbox**: the original file with the thumbnail as placeholder, ←/→, Esc, Space = select.
   The stage is a strip of three slides (previous, current, next, so the neighbors are loaded
   ahead) that follows the finger sideways once the first 8 px of a touch move are more
-  horizontal than vertical; on release it slides on to the neighbor when the drag passed a
+  horizontal than vertical (a second finger, a pinch zoom, drops the swipe and leaves the zoom
+  to the browser); on release it slides on to the neighbor when the drag passed a
   quarter of the width or was a quick flick (> 0.5 px/ms over > 20 px), else it springs back.
   Arrows and keys slide the same way (250 ms; none with `prefers-reduced-motion`). The image
   changes only once the slide has settled, and since that goes through the address hash (not

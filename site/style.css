@@ -225,9 +225,10 @@ main { padding: 8px 8px 72px; }
 /* ---------- lightbox ---------- */
 
 .lightbox { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; background: var(--bg); }
-/* The stage clips a strip of slides (previous, current, next) that app.js moves sideways with the
-   finger; pan-y leaves horizontal touch moves to it and vertical ones to the browser. */
-.stage { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: pan-y; }
+/* The stage clips a strip of slides (previous, current, next) that app.js moves sideways with
+   the finger; touch-action leaves one-finger horizontal moves to it, and vertical moves and
+   pinch zoom to the browser. */
+.stage { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: pan-y pinch-zoom; }
 .strip { position: absolute; inset: 0; will-change: transform; }
 .slide { position: absolute; inset: 0; padding: 12px; }
 .slide.prev { transform: translateX(-100%); }
@@ -281,7 +282,7 @@ main { padding: 8px 8px 72px; }
 @media (max-width: 520px) {
   :root { --g: 4px; --frame: 5px; --u: calc((100vw - 16px - 39 * var(--g)) / 40); }
   .grid { grid-template-columns: repeat(40, var(--u)); }
-  .foot { height: 22px; }
+  .foot { height: 32px; } /* 5px more above and below than the content needs: a finger-sized target */
   .top { gap: 10px; padding: 0 8px; }
   .toolbar p { flex-basis: 100%; }
   .actions { flex-direction: column; align-items: flex-end; gap: 4px; }

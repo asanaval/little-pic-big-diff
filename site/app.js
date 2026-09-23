@@ -397,7 +397,9 @@
     }, []);
 
     // Touch: the first 8 px decide whether the finger moves sideways (ours) or vertically (not).
+    // A second finger means a pinch zoom, the browser's: the swipe is dropped and springs back.
     const onTouchStart = (event) => {
+      if (event.touches.length > 1) return onTouchCancel();
       if (count < 2 || sliding.current) return;
       const t = event.touches[0];
       drag.current = { x: t.clientX, y: t.clientY, t: performance.now(), axis: null };
@@ -405,6 +407,7 @@
     const onTouchMove = (event) => {
       const d = drag.current;
       if (!d) return;
+      if (event.touches.length > 1) return onTouchCancel();
       const t = event.touches[0];
       const dx = t.clientX - d.x;
       const dy = t.clientY - d.y;
