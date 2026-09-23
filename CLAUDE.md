@@ -62,7 +62,10 @@ with a comma (trailing commas are allowed, so lines can be moved without fixing 
 `site` settings: `title`, `description` (shown above the grid when the category has none),
 `addNewImages` (`"bottom"`/`"top"`), `thumbSize` (long side in px, default 420 ≈ 2× the
 displayed size; changing it does not resize existing files: delete `thumbs`), `goatcounter`
-(see Usage counting; `""` = off).
+(see Usage counting; `""` = off), `showClearButton` and `showDownloadAllButton` (the toolbar's
+Clear and Download all buttons, see Site behavior; both `false` by default, so hidden),
+`rememberSelection` (`true`: the selection survives a reload, see Site behavior; `false` by
+default: a reload unselects everything).
 
 Thumbnails are WebP, named `<original file name>.webp` (so `a.jpg` and `a.png` cannot collide),
 remade when missing or older than the source; thumbnails without a visible image are removed.
@@ -105,23 +108,28 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
 - **Tabs** (`Tabs` in `app.js`): the strip scrolls sideways when it does not fit, with its
   scrollbar hidden, so a ≪ or ≫ is overlaid on the edge behind which more tabs hide (checked on
   scroll and on resize); tapping it scrolls 70 % of the strip's width that way. The active tab
-  is scrolled into view when it changes. On touch screens a sideways swipe anywhere under the
-  header (`main` fills the rest of the screen, blank space included) goes to the previous/next
-  tab, with no wrap-around at the ends (`useSwipe`, the recognizer shared with the lightbox:
+  is scrolled into view when it changes. ← / → (with the lightbox closed) and, on touch
+  screens, a sideways swipe anywhere under the header (`main` fills the rest of the screen,
+  blank space included) go to the previous/next tab, with no wrap-around at the ends
+  (`switchTab`; `useSwipe` is the swipe recognizer shared with the lightbox:
   the first 8 px of a touch move decide between sideways and vertical, a second finger drops
   the swipe, and it counts when it passed a quarter of the width or was a quick flick,
-  > 0.5 px/ms over > 20 px). `main` follows the finger and, when the swipe counts, glides off
-  the screen (`glide`, 250 ms, none under `prefers-reduced-motion`); the new tab then renders
-  in its place without animation (nothing is pre-rendered), `main` being put back in a layout
-  effect before that paints. Otherwise `main` springs back.
-- **Selection** is kept across tabs and stored in `localStorage` (`lpbd-selection`, ids are
-  `folder/file`); ids that no longer exist are dropped at load. Everything sits in the toolbar
+  > 0.5 px/ms over > 20 px). `main` follows the finger and, when the swipe counts (or on a
+  key), glides off the screen (`glide`, 250 ms, none under `prefers-reduced-motion`); the new
+  tab then renders in its place without animation (nothing is pre-rendered), `main` being put
+  back in a layout effect before that paints. Otherwise `main` springs back.
+- **Selection** is kept across tabs. With `rememberSelection` on it is also stored in
+  `localStorage` (`lpbd-selection`, ids are `folder/file`) and ids that no longer exist are
+  dropped at load; with it off (the default) a reload starts with nothing selected, and any
+  stored selection is removed. Everything sits in the toolbar
   under the tabs: the tab's description at the left, at the right "x images selected (n in other
   tabs) · size" (or the download progress, or a red failure with a Dismiss button among the
   buttons) and then the buttons; on phones the buttons come first and the status text goes on
   a line under them. The buttons: Select all / Deselect all (this tab) and the blue Download
   all (this tab) when nothing is selected; Clear, Select all / Deselect all and the blue
-  Download (the whole selection, all tabs) when something is. There is no other bar.
+  Download (the whole selection, all tabs) when something is. Clear and Download all only
+  exist when `showClearButton` / `showDownloadAllButton` in the `site` block are `true` (both
+  are `false` by default). There is no other bar.
 - **Download**: one image → direct download of the original. Several → originals are fetched
   (4 at once) and zipped in the browser with JSZip, uncompressed (`STORE`); paths inside the ZIP
   are `folder/file`, or just `file` when all come from one folder. Above 500 MB the visitor is

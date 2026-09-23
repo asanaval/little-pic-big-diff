@@ -135,7 +135,14 @@
   }
 
   function normalize(raw) {
-    const site = { title: "Gallery", description: "", ...raw.site };
+    const site = {
+      title: "Gallery",
+      description: "",
+      showClearButton: false,
+      showDownloadAllButton: false,
+      rememberSelection: false,
+      ...raw.site,
+    };
     const newSince = previousVisit();
     const categories = (raw.categories || [])
       .map((category) => ({
@@ -257,7 +264,10 @@
 
   // ---------- selection, remembered in this browser ----------
 
-  function useSelection() {
+  // `remember` is the site's rememberSelection setting, null until the gallery has loaded. The
+  // stored selection is read at once (the grid is not shown before the gallery anyway); App
+  // clears it, in the render that shows the gallery, when the setting is off.
+  function useSelection(remember) {
     const [selection, setSelection] = useState(() => {
       try {
         return new Set(JSON.parse(localStorage.getItem(SELECTION_KEY)) || []);
@@ -266,10 +276,12 @@
       }
     });
     useEffect(() => {
+      if (remember === null) return;
       try {
-        localStorage.setItem(SELECTION_KEY, JSON.stringify([...selection]));
+        if (remember) localStorage.setItem(SELECTION_KEY, JSON.stringify([...selection]));
+        else localStorage.removeItem(SELECTION_KEY);
       } catch {}
-    }, [selection]);
+    }, [selection, remember]);
     const current = useRef(selection);
     current.current = selection;
     // via = where the click came from ("card", "lightbox"), only used for counting.
@@ -550,7 +562,7 @@
     const [busy, setBusy] = useState(null);
     const [failure, setFailure] = useState(null);
     const [route, go] = useRoute();
-    const { selection, toggle, setMany, clear, keepOnly } = useSelection();
+    const { selection, toggle, setMany, clear, keepOnly } = useSelection(gallery ? Boolean(gallery.site.rememberSelection) : null);
 
     useEffect(() => {
       // gallery+.jsonc, when it exists, is used instead of gallery.jsonc (generate.py does the same).
@@ -563,6 +575,7 @@
       load()
         .then((loaded) => {
           track.start(loaded.site.goatcounter);
+          if (!loaded.site.rememberSelection) clear(); // batched with setGallery: no frame with the old selection
           setGallery(loaded);
         })
         .catch((error) => setLoadError(String(error.message || error)));
@@ -574,21 +587,22 @@
     }, [gallery, allImages, keepOnly]);
 
     const category = gallery && (gallery.categories.find((c) => c.folder === route.folder) || gallery.categories[0]);
-    // A swipe on the page goes to the previous/next tab: main follows the finger and, when the
-    // swipe counts and there is a tab that way (no wrap-around), glides off the screen; the new
-    // tab then renders in its place, with no animation, and main is put back before that paints
-    // (the layout effect). Otherwise main springs back.
+    // A swipe on the page, or ← / → (lightbox closed), goes to the previous/next tab: main glides
+    // off the screen (after following the finger, for a swipe) when there is a tab that way (no
+    // wrap-around); the new tab then renders in its place, with no animation, and main is put
+    // back before that paints (the layout effect). Otherwise main springs back.
     const main = useRef(null);
     const leaving = useRef(false); // main is gliding, or off-screen waiting for the new tab
+    const switchTab = (step) => {
+      const next = step !== 0 && gallery.categories[gallery.categories.indexOf(category) + step]; // 0: spring back
+      leaving.current = true;
+      if (next) glide(main.current, -step * main.current.clientWidth, () => go(next.folder, null));
+      else glide(main.current, 0, () => (unglide(main.current), (leaving.current = false)));
+    };
     const swipeTabs = useSwipe({
       allowed: () => !leaving.current,
       drag: (dx) => follow(main.current, dx),
-      end: (dx, far) => {
-        const next = far && gallery.categories[gallery.categories.indexOf(category) + (dx < 0 ? 1 : -1)];
-        leaving.current = true;
-        if (next) glide(main.current, Math.sign(dx) * main.current.clientWidth, () => go(next.folder, null));
-        else glide(main.current, 0, () => (unglide(main.current), (leaving.current = false)));
-      },
+      end: (dx, far) => (far ? switchTab(dx < 0 ? 1 : -1) : switchTab(0)),
     });
     useLayoutEffect(() => {
       if (leaving.current && main.current) {
@@ -597,6 +611,18 @@
       }
     }, [category]);
     const openImage = (category && route.file && category.images.find((image) => image.file === route.file)) || null;
+    useEffect(() => {
+      if (!gallery || openImage) return; // the lightbox has its own ← / →
+      const onKey = (event) => {
+        if (event.altKey || event.ctrlKey || event.metaKey || leaving.current) return;
+        if (event.key === "ArrowLeft") switchTab(-1);
+        else if (event.key === "ArrowRight") switchTab(1);
+        else return;
+        event.preventDefault();
+      };
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    });
 
     useEffect(() => {
       if (!gallery) return;
@@ -663,7 +689,7 @@
           ${(category.description || gallery.site.description) && html`<p>${category.description || gallery.site.description}</p>`}
           <div className="actions">
             <div className="buttons">
-              ${selected.length > 0 && html`<button onClick=${() => (track.clear(), clear())}>Clear</button>`}
+              ${gallery.site.showClearButton && selected.length > 0 && html`<button onClick=${() => (track.clear(), clear())}>Clear</button>`}
               <button
                 onClick=${() => {
                   track.selectAll(category, !allHereSelected);
@@ -678,7 +704,8 @@
                       Download
                     </button>
                   `
-                : html`
+                : gallery.site.showDownloadAllButton &&
+                  html`
                     <button className="primary" disabled=${Boolean(busy)} onClick=${() => download(category.images, `${slug(category.title)}.zip`)}>
                       Download all
                     </button>

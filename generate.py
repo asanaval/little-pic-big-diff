@@ -30,6 +30,9 @@ DEFAULT_SITE = {
     "addNewImages": "bottom",
     "thumbSize": 420,
     "goatcounter": "",  # "https://<code>.goatcounter.com/count" switches usage counting on
+    "showClearButton": False,  # the toolbar's Clear (drops the whole selection)
+    "showDownloadAllButton": False,  # the toolbar's Download all (the tab's images, when nothing is selected)
+    "rememberSelection": False,  # keep the selection across reloads (localStorage); False: a reload unselects all
 }
 DELETED_MARK = "[deleted]"
 # An image line that is commented out: by this script ("// [deleted] {...},") or by hand ("// {...},").

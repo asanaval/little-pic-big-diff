@@ -8,6 +8,9 @@
     "addNewImages": "bottom",
     "thumbSize": 420,
     "goatcounter": "",
+    "showClearButton": false,
+    "showDownloadAllButton": false,
+    "rememberSelection": false,
   },
   "categories": [
     {
