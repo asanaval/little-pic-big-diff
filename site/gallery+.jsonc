@@ -1,6 +1,7 @@
 // Rewritten by generate.py. Yours to edit: site settings, category order/title/description/hidden,
 // image order/title/tags. One image per line; every image line ends with a comma.
 // "// [deleted] {...}" = file is gone (comes back when the file does). "// {...}" = hidden by you.
+// "file": "Archives/..." = in the folder's Archives subfolder: shown after the others, under an "Archived" line.
 {
   "site": {
     "title": "Little pic, big diff",
@@ -25,6 +26,8 @@
         {"file": "A3.jpg", "title": "A3", "tags": [], "added": "2026-09-22", "w": 345, "h": 473, "bytes": 51242},
         {"file": "A4.jpg", "title": "A4", "tags": [], "added": "2026-09-22", "w": 345, "h": 473, "bytes": 46775},
         {"file": "A5.jpg", "title": "A5", "tags": [], "added": "2026-09-22", "w": 473, "h": 345, "bytes": 53112},
+        {"file": "Archives/A6.jpg", "title": "A6", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 465443},
+        {"file": "Archives/A7.jpg", "title": "A7", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 510125},
       ],
     },
     {
@@ -123,6 +126,7 @@
         {"file": "R1.jpg", "title": "R1", "tags": [], "added": "2026-09-22", "w": 1070, "h": 1468, "bytes": 422502},
         {"file": "R2.jpg", "title": "R2", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 582312},
         {"file": "R3.jpg", "title": "R3", "tags": [], "added": "2026-09-22", "w": 1283, "h": 1761, "bytes": 592840},
+        {"file": "R4.jpg", "title": "R4", "tags": [], "added": "2026-09-23", "w": 1761, "h": 1283, "bytes": 593661},
       ],
     },
     {
@@ -139,9 +143,9 @@
       "title": "Event",
       "description": "",
       "images": [
-        {"file": "E1.jpg", "title": "E1", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 465443},
+        // [deleted] {"file": "E1.jpg", "title": "E1", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 465443},
         {"file": "E2.jpg", "title": "E2", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 1027154},
-        {"file": "E3.jpg", "title": "E3", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 510125},
+        // [deleted] {"file": "E3.jpg", "title": "E3", "tags": [], "added": "2026-09-23", "w": 1283, "h": 1761, "bytes": 510125},
       ],
     },
     {
