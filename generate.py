@@ -6,6 +6,7 @@ import html
 import json
 import os
 import re
+import shutil
 import sys
 from datetime import date
 from pathlib import Path
@@ -24,8 +25,9 @@ INDEX = SITE / "index.html"
 HEAD_BLOCK = re.compile(r"(<!-- generate\.py:[^\n]*-->\n)(.*?)([ \t]*<!-- /generate\.py -->)", re.S)
 
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-# Folders with this prefix are sample content: left out of the gallery file (and their
-# thumbnails removed) as soon as any other folder exists. The site hides them too, in case.
+# Folders with this prefix are sample content: deleted from site/images (their category blocks
+# dropped, their thumbnails removed) as soon as any other folder has images. The site hides
+# them too, in case.
 DEMO_PREFIX = "z-demo-"
 # A category folder may hold an Archives subfolder (any case): its images belong to the same
 # category, listed as "Archives/<file>", shown after the others under an "Archived" line.
@@ -463,11 +465,13 @@ def main():
     counts = {"added": 0, "moved": 0, "deleted": 0, "restored": 0, "resized": 0, "fixed": 0, "off": 0, "cleaned": 0, "rotated": 0}
 
     folders = sorted(p.name for p in IMAGES.iterdir() if p.is_dir())
-    if any(not f.startswith(DEMO_PREFIX) for f in folders):
+    demo_folders = []  # deleted once the checks below have passed
+    if any(files_on_disk(f) for f in folders if not f.startswith(DEMO_PREFIX)):
         demo = [c["folder"] for c in categories if c["folder"].startswith(DEMO_PREFIX)]
         demo += [f for f in folders if f.startswith(DEMO_PREFIX) and f not in demo]
+        demo_folders = [f for f in folders if f.startswith(DEMO_PREFIX)]
         if demo:
-            print(f"Demo folders left out (other folders exist): {', '.join(demo)}")
+            print(f"Demo content removed (other folders have images): {', '.join(demo)}")
         categories[:] = [c for c in categories if not c["folder"].startswith(DEMO_PREFIX)]
         folders = [f for f in folders if not f.startswith(DEMO_PREFIX)]
     known_folders = {c["folder"] for c in categories}
@@ -486,6 +490,9 @@ def main():
             + "\n".join("  " + "  =  ".join(files) for files in duplicates)
             + "\nNothing was changed. Rename or remove one of each and run again."
         )
+
+    for folder in demo_folders:
+        shutil.rmtree(IMAGES / folder)
 
     keep = set()
     for category in categories:
