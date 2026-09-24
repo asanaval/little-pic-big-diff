@@ -930,6 +930,17 @@
       </div>
     `;
 
+    // ‹ / › at the window's edges, like the lightbox's, go to the previous/next tab (the same
+    // glide as ← / →), none at the ends. Fixed, so rendered after main: a transformed ancestor
+    // (main during a tab swipe) would carry them along.
+    const tabIndex = gallery.categories.indexOf(category);
+    const tabStep = (step) => () => leaving.current || switchTab(step);
+    const tabButtons = html`
+      ${tabIndex > 0 && html`<button className="nav tab-nav prev" onClick=${tabStep(-1)} aria-label="Previous gallery">‹</button>`}
+      ${tabIndex < gallery.categories.length - 1 &&
+      html`<button className="nav tab-nav next" onClick=${tabStep(1)} aria-label="Next gallery">›</button>`}
+    `;
+
     return html`
       <header className="top">
         <img className="logo" src="logo-small-borderless-transparent.png" alt=${gallery.site.title} />
@@ -939,7 +950,7 @@
       <main ref=${mainRef} ...${swipeTabs}>
         <div className="current">
           <div ref=${toolbar} className=${selected.length > 0 ? "toolbar sticky" : "toolbar"}>
-            ${(category.description || gallery.site.description) && html`<p>${category.description || gallery.site.description}</p>`}
+            ${category.description && html`<p>${category.description}</p>`}
             ${actions}
           </div>
           <div className="grid">
@@ -963,6 +974,7 @@
           </section>
         `}
       </main>
+      ${!openImage && tabButtons}
 
       ${openImage &&
       html`

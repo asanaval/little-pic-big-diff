@@ -318,6 +318,8 @@ main { --bottom: 72px; flex: 1; padding: 0 8px var(--bottom); touch-action: pan-
 }
 .nav.prev { left: 8px; }
 .nav.next { right: 8px; }
+/* The same buttons over the gallery, at the window's edges: previous/next tab. */
+.nav.tab-nav { position: fixed; z-index: 9; }
 .back {
   position: absolute;
   top: 12px;

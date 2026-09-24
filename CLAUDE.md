@@ -100,8 +100,9 @@ with a comma (trailing commas are allowed, so lines can be moved without fixing 
   Checked for all folders before any file is touched.
 - The file is written with LF line endings and only when its content changed.
 
-`site` settings: `title`, `description` (shown above the grid when the category has none,
-and the link-preview text), `url` (the public address, `https://…`; `""` until deployed: link
+`site` settings: `title`, `description` (link-preview text and the page's
+`description` meta tag only; never shown on the page, where only a category's own
+`description` appears), `url` (the public address, `https://…`; `""` until deployed: link
 previews then have no image),
 `addNewImages` (`"bottom"`/`"top"`), `thumbSize` (long side in px, default 420 ≈ 2× the
 displayed size; changing it does not resize existing files: delete `thumbs`), `goatcounter`

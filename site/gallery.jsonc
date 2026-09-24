@@ -4,8 +4,8 @@
 // "file": "Archives/..." = in the folder's Archives subfolder: shown after the others, under an "Archived" line.
 {
   "site": {
-    "title": "Little pic, big diff",
-    "description": "Print-ready images to download, print and hand out. Small pictures, big difference.",
+    "title": "[Dev] Simple Gallery",
+    "description": "",
     "url": "",
     "addNewImages": "bottom",
     "thumbSize": 420,

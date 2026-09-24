@@ -38,7 +38,7 @@ RATIO = (1283, 1761)  # short side, long side
 RATIO_TOLERANCE = 0.005
 DEFAULT_SITE = {
     "title": "Little pic, big diff",
-    "description": "",
+    "description": "",  # link-preview text (index.html meta tags); not shown on the page
     "url": "",  # the site's public address (https://...): link previews then show site/icon.png
     "addNewImages": "bottom",
     "thumbSize": 420,
