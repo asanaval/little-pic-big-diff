@@ -2,6 +2,7 @@
 
 See CLAUDE.md for the rules (what is preserved, what is commented out).
 """
+import html
 import json
 import os
 import re
@@ -17,6 +18,10 @@ IMAGES = SITE / "images"
 THUMBS = SITE / "thumbs"
 # gallery+.jsonc, when it exists, is used instead of gallery.jsonc (by this script and the site).
 GALLERY = SITE / "gallery+.jsonc" if (SITE / "gallery+.jsonc").exists() else SITE / "gallery.jsonc"
+# The page's title and link-preview tags, between these two lines of index.html, are rewritten
+# from the "site" block: link previews (Signal, WhatsApp, ...) read the HTML without running app.js.
+INDEX = SITE / "index.html"
+HEAD_BLOCK = re.compile(r"(<!-- generate\.py:[^\n]*-->\n)(.*?)([ \t]*<!-- /generate\.py -->)", re.S)
 
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 # Folders with this prefix are sample content: left out of the gallery file (and their
@@ -34,6 +39,7 @@ RATIO_TOLERANCE = 0.005
 DEFAULT_SITE = {
     "title": "Little pic, big diff",
     "description": "",
+    "url": "",  # the site's public address (https://...): link previews then show site/icon.png
     "addNewImages": "bottom",
     "thumbSize": 420,
     "goatcounter": "",  # "https://<code>.goatcounter.com/count" switches usage counting on
@@ -281,6 +287,37 @@ def remove_orphans(base, keep):
     return removed
 
 
+def update_index(site):
+    """Rewrites the title and link-preview tags in index.html. Returns True when it changed."""
+    text = INDEX.read_text(encoding="utf-8")
+    block = HEAD_BLOCK.search(text)
+    if not block:
+        print(f"{INDEX.name}: the generate.py marker lines are missing, title not updated")
+        return False
+    attr = lambda value: html.escape(value, quote=True)
+    tags = [f"<title>{attr(site['title'])}</title>", f'<meta property="og:title" content="{attr(site["title"])}">']
+    if site["description"]:
+        tags += [
+            f'<meta name="description" content="{attr(site["description"])}">',
+            f'<meta property="og:description" content="{attr(site["description"])}">',
+        ]
+    tags.append('<meta property="og:type" content="website">')
+    if site["url"]:  # og:image must be an absolute address
+        base = site["url"].rstrip("/") + "/"
+        tags += [
+            f'<meta property="og:url" content="{attr(base)}">',
+            f'<meta property="og:image" content="{attr(base + "icon.png")}">',
+            '<meta property="og:image:width" content="512">',
+            '<meta property="og:image:height" content="512">',
+        ]
+    new = text[: block.start(2)] + "".join(f"  {tag}\n" for tag in tags) + text[block.end(2) :]
+    if new == text:
+        return False
+    with open(INDEX, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(new)
+    return True
+
+
 def render(gallery):
     dump = lambda value: json.dumps(value, ensure_ascii=False)
     lines = [
@@ -402,6 +439,8 @@ def main():
     if first_run or GALLERY.read_text(encoding="utf-8") != text:
         with open(GALLERY, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(text)
+    if update_index(site):
+        print(f"{INDEX.name}: title and link preview updated")
 
     shown = sum(1 for c in categories for e in c["images"] if STATE not in e)
     print(f"{GALLERY.name}: ", end="")

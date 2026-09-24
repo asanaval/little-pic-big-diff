@@ -31,9 +31,22 @@ folders. `site/` is the whole website; everything else is tooling.
   `logo-large.png`); not part of the site. `site/logo-small-borderless-transparent.png` is a
   copy of the transparent one, shown at the top left instead of the site title (`.top .logo`,
   scaled to the tab strip's 40 px with nothing around it). Copy again after changing the source.
+- `icons.py` — cuts the megaphone-and-fist icon out of `assets/logo-large.png` (`SEARCH_BOX`,
+  one color `INK`, opacity from darkness) and writes `site/favicon.ico` (16/32/48, on a white
+  rounded square so it shows on a dark tab strip), `site/apple-touch-icon.png` (180, plain white
+  square: iOS rounds it) and `site/icon.png` (512, the link-preview image). The outputs are
+  tracked; run it again only after changing the logo (needs Pillow).
 - `site/index.html`, `site/app.js`, `site/style.css` — the app. React 18 + htm + JSZip come from
   CDNs (cdnjs, jsdelivr), GoatCounter's `count.js` from gc.zgo.at only when counting is on; there
   is no build step and no `node_modules`.
+- `site/index.html` head: the lines between `<!-- generate.py: … -->` and `<!-- /generate.py -->`
+  are rewritten by `generate.py` from the `site` block: `<title>`, `og:title`, and (when
+  `description` is not empty) `description` / `og:description`, plus `og:type`, and (when
+  `url` is set: `og:image` must be an absolute address) `og:url` and `og:image` = `icon.png`.
+  Link previews (Signal, WhatsApp, …) read the raw HTML without running `app.js`, whose
+  `document.title` only Chrome's tab shows. Keep the marker lines; without them the script
+  prints a warning. The icon links under them (`favicon.ico`, `icon.png`,
+  `apple-touch-icon.png`) are fixed.
 - `site/gallery.jsonc` — the data file the site reads. Created by the first `generate.py` run.
 - `site/gallery+.jsonc` — optional. If it exists, it is used **instead of** `gallery.jsonc` by
   both `generate.py` (read and rewritten, `gallery.jsonc` is then left alone) and the site (the
@@ -87,7 +100,9 @@ with a comma (trailing commas are allowed, so lines can be moved without fixing 
   Checked for all folders before any file is touched.
 - The file is written with LF line endings and only when its content changed.
 
-`site` settings: `title`, `description` (shown above the grid when the category has none),
+`site` settings: `title`, `description` (shown above the grid when the category has none,
+and the link-preview text), `url` (the public address, `https://…`; `""` until deployed: link
+previews then have no image),
 `addNewImages` (`"bottom"`/`"top"`), `thumbSize` (long side in px, default 420 ≈ 2× the
 displayed size; changing it does not resize existing files: delete `thumbs`), `goatcounter`
 (see Usage counting; `""` = off), `showClearButton` and `showDownloadAllButton` (the toolbar's
