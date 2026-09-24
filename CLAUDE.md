@@ -123,7 +123,7 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
 (landscape), which is the same ratio to within 0.001 %. `generate.py` (`RATIO`,
 `RATIO_TOLERANCE` = 0.5 %) enforces it:
 - Image within 0.5 % of the ratio but not exact → **the original file is resized in place** to the
-  exact ratio, keeping its long side (JPEG re-saved at quality 95, 4:4:4; WebP quality 95; PNG
+  exact ratio, keeping its long side (JPEG re-saved at quality 89, 4:4:4; WebP quality 95; PNG
   lossless; ICC profile kept; EXIF rotation baked in, EXIF dropped). Printed as
   `Resized to exact ratio`. GIFs and animated files are never touched.
 - Image more than 0.5 % off → the original is left alone, and printed as `INCORRECT RATIO` on every
@@ -132,6 +132,20 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   (420 → 306×420), stretched if needed; an off-ratio image's thumbnail carries a big red
   "Incorrect Ratio" label on white in the middle (Arial Bold, or Pillow's default font).
 `tags` are private notes for now: the site does not show or use them.
+
+## Metadata rule
+The originals are public downloads, so `generate.py` (`clean_metadata`, run on every visible
+image before the ratio check) takes all metadata out of them: EXIF (GPS, camera, dates), XMP
+(author names from editing apps), IPTC/Photoshop blocks, comments, PNG text chunks. It drops
+only the blocks that hold it (`strip_jpeg`, `strip_png`, `strip_webp`), so **the picture is not
+re-encoded** (pixels identical). Kept: the ICC profile and what decoding needs (JPEG APP0 JFIF,
+APP14 Adobe; PNG critical chunks and those in `PNG_KEEP`). Printed as `Metadata removed`; a
+clean file is left untouched (no rewrite, no new thumbnail).
+- An image with an EXIF rotation (Orientation other than 1) is **re-saved turned upright**
+  instead (like a ratio fix: JPEG quality 89 4:4:4, WebP 95, PNG lossless; ICC kept), which
+  drops the metadata as well. Printed as `Rotated upright, metadata removed`.
+- GIFs and animated files are left alone, metadata included.
+- A file whose layout the strippers do not recognize is left alone.
 
 ## Site behavior
 - **Archived images** (`archived` on the image, from the `Archives/` prefix of its file) come
@@ -188,6 +202,10 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   toolbar (see Selection) stays in place throughout: it is moved the opposite way to `main`
   (it stays inside `main` so that it still scrolls away at the archived area), and a swipe
   that starts on it is ignored (`allowed(event)`).
+  A ‹ / › button at the window's left/right edge, mid-height (the lightbox's `.nav` style,
+  `.tab-nav`: `position: fixed`, rendered after `main` for the reason above), does the same as
+  ← / →; there is none at the first/last tab, none while the lightbox is open, and none on
+  phones (the `.nav` rule hides them there, like the lightbox's; the swipe does it).
 - **Selection** is kept across tabs. With `rememberSelection` on it is also stored in
   `localStorage` (`lpbd-selection`, ids are `folder/file`) and ids that no longer exist are
   dropped at load; with it off (the default) a reload starts with nothing selected, and any

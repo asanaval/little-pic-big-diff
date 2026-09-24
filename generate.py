@@ -192,6 +192,21 @@ def opened(source):
         return out
 
 
+def replace_file(source, write):
+    """Writes the new content next to `source` (`write(temp path)`), then swaps it in."""
+    temp = source.with_name(source.name + ".tmp")
+    write(temp)
+    temp.replace(source)
+
+
+def resave(img, fmt, source):
+    """Saves `img` over `source` in format `fmt` (JPEG at quality 89, 4:4:4; WebP at quality 95;
+    PNG lossless), with its ICC profile and no other metadata."""
+    icc = img.info.get("icc_profile")
+    options = {"JPEG": {"quality": 89, "subsampling": 0}, "WEBP": {"quality": 95, "method": 6}}.get(fmt, {})
+    replace_file(source, lambda temp: img.save(temp, fmt, icc_profile=icc, **options))
+
+
 def fix_ratio(source):
     """Resizes the file in place to the exact ratio (its long side is kept) when it is within
     RATIO_TOLERANCE of it. Returns "exact", "fixed", "off" (too far, left alone) or "skipped"."""
@@ -204,18 +219,105 @@ def fix_ratio(source):
             return "off"
         if img.format == "GIF" or img.frames > 1:
             return "skipped"
-        fmt = img.format
-        img = img.resize(exact_size(width, height), Image.LANCZOS)
-        icc = img.info.get("icc_profile")
-        temp = source.with_name(source.name + ".tmp")
-        if fmt == "JPEG":
-            img.save(temp, fmt, quality=95, subsampling=0, icc_profile=icc)
-        elif fmt == "WEBP":
-            img.save(temp, fmt, quality=95, method=6, icc_profile=icc)
-        else:
-            img.save(temp, fmt, icc_profile=icc)
-    temp.replace(source)
+        resave(img.resize(exact_size(width, height), Image.LANCZOS), img.format, source)
     return "fixed"
+
+
+# Metadata (EXIF, XMP, IPTC/Photoshop, comments, PNG text, ...) is taken out of the originals
+# without re-encoding the picture: only the blocks that hold it are dropped. Kept: what decoding
+# needs and the color information (ICC profile; JPEG APP0 JFIF and APP14 Adobe; the PNG chunks
+# below). Any other ancillary PNG chunk is dropped.
+PNG_KEEP = {b"tRNS", b"gAMA", b"cHRM", b"sRGB", b"iCCP", b"sBIT", b"bKGD", b"pHYs", b"cICP", b"mDCv", b"cLLi", b"acTL", b"fcTL", b"fdAT"}
+
+
+def strip_jpeg(data):
+    """The JPEG without its metadata segments (APP1-APP15 except APP14 and the ICC profile's
+    APP2, and COM), or None when the file is not laid out as expected."""
+    if data[:2] != b"\xff\xd8":
+        return None
+    out, i = [data[:2]], 2
+    while i + 4 <= len(data):
+        if data[i] != 0xFF:
+            return None
+        marker = data[i + 1]
+        if marker == 0xFF:  # fill byte
+            i += 1
+            continue
+        if marker in (0xDA, 0xD9):  # start of scan (the rest is picture data) or end of image
+            out.append(data[i:])
+            return b"".join(out)
+        if 0xD0 <= marker <= 0xD7 or marker == 0x01:  # markers without a length
+            out.append(data[i : i + 2])
+            i += 2
+            continue
+        end = i + 2 + int.from_bytes(data[i + 2 : i + 4], "big")
+        segment = data[i:end]
+        icc = marker == 0xE2 and segment[4:16] == b"ICC_PROFILE\0"
+        if not (marker == 0xFE or (0xE1 <= marker <= 0xEF and marker != 0xEE and not icc)):
+            out.append(segment)
+        i = end
+    return None
+
+
+def strip_png(data):
+    """The PNG with only its critical chunks and those in PNG_KEEP, or None when it is not a PNG."""
+    signature = b"\x89PNG\r\n\x1a\n"
+    if not data.startswith(signature):
+        return None
+    out, i = [signature], len(signature)
+    while i + 12 <= len(data):
+        kind = data[i + 4 : i + 8]
+        end = i + 12 + int.from_bytes(data[i : i + 4], "big")
+        if not kind[0] & 0x20 or kind in PNG_KEEP:  # a lowercase first letter = ancillary chunk
+            out.append(data[i:end])
+        if kind == b"IEND":
+            return b"".join(out)
+        i = end
+    return None
+
+
+def strip_webp(data):
+    """The WebP without its EXIF and XMP chunks (their VP8X flags cleared), or None when it is
+    not laid out as expected."""
+    if data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+        return None
+    out, i, stop = [], 12, 8 + int.from_bytes(data[4:8], "little")
+    while i + 8 <= stop:
+        kind = data[i : i + 4]
+        size = int.from_bytes(data[i + 4 : i + 8], "little")
+        chunk = data[i : i + 8 + size + (size & 1)]  # chunks are padded to an even size
+        if kind == b"VP8X":
+            chunk = chunk[:8] + bytes([chunk[8] & ~0x0C & 0xFF]) + chunk[9:]  # EXIF (8), XMP (4) flags
+        if kind not in (b"EXIF", b"XMP "):
+            out.append(chunk)
+        i += len(chunk)
+    if i != stop:
+        return None
+    body = b"WEBP" + b"".join(out)
+    return b"RIFF" + len(body).to_bytes(4, "little") + body
+
+
+def clean_metadata(source):
+    """Takes the metadata out of the original. An EXIF rotation is applied first: the picture is
+    then re-saved turned (like a ratio fix), which drops the metadata as well. GIFs and animated
+    files are left alone. Returns "rotated", "cleaned" or None (nothing to do)."""
+    with Image.open(source) as img:
+        fmt = img.format
+        rotated = img.getexif().get(0x0112, 1) not in (0, 1)  # the EXIF Orientation tag
+        still = fmt != "GIF" and getattr(img, "n_frames", 1) == 1
+    if not still:
+        return None
+    if rotated:
+        with opened(source) as img:
+            resave(img, fmt, source)
+        return "rotated"
+    strip = {"JPEG": strip_jpeg, "PNG": strip_png, "WEBP": strip_webp}.get(fmt)
+    data = source.read_bytes()
+    clean = strip(data) if strip else None
+    if clean is None or clean == data:
+        return None
+    replace_file(source, lambda temp: temp.write_bytes(clean))
+    return "cleaned"
 
 
 def label_font(size):
@@ -251,9 +353,13 @@ def save_thumbnail(source, target, size, quality, off):
 
 
 def update_image(folder, entry, site, counts):
-    """Fixes the file's ratio when needed, refreshes w/h/bytes and the thumbnail.
-    Returns True when a thumbnail was made."""
+    """Takes the metadata out of the file, fixes its ratio when needed, refreshes w/h/bytes and
+    the thumbnail. Returns True when a thumbnail was made."""
     source = IMAGES / folder / entry["file"]
+    cleaned = clean_metadata(source)
+    if cleaned:
+        counts[cleaned] += 1
+        print(f"{'Rotated upright, metadata removed' if cleaned == 'rotated' else 'Metadata removed'}: {folder}/{entry['file']}")
     result = fix_ratio(source)
     if result == "fixed":
         counts["fixed"] += 1
@@ -354,7 +460,7 @@ def main():
     site = gallery["site"] = {**DEFAULT_SITE, **gallery.get("site", {})}
     categories = gallery.setdefault("categories", [])
     today = date.today().isoformat()
-    counts = {"added": 0, "moved": 0, "deleted": 0, "restored": 0, "resized": 0, "fixed": 0, "off": 0}
+    counts = {"added": 0, "moved": 0, "deleted": 0, "restored": 0, "resized": 0, "fixed": 0, "off": 0, "cleaned": 0, "rotated": 0}
 
     folders = sorted(p.name for p in IMAGES.iterdir() if p.is_dir())
     if any(not f.startswith(DEMO_PREFIX) for f in folders):
@@ -448,7 +554,8 @@ def main():
         f"{shown} images in {len(categories)} categories. "
         f"Added {counts['added']}, moved {counts['moved']}, deleted {counts['deleted']}, restored {counts['restored']}, "
         f"thumbnails made for {counts['resized']}, orphan files removed {orphans}, "
-        f"files resized to the exact ratio {counts['fixed']}, incorrect ratio {counts['off']}."
+        f"files resized to the exact ratio {counts['fixed']}, incorrect ratio {counts['off']}, "
+        f"metadata removed from {counts['cleaned'] + counts['rotated']} (rotated upright {counts['rotated']})."
     )
 
 
