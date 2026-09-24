@@ -81,6 +81,10 @@ with a comma (trailing commas are allowed, so lines can be moved without fixing 
 - A category with no visible images gets no tab. A removed folder keeps its category block with
   all lines `[deleted]`; delete the block by hand to remove it.
 - Invalid JSON → the script prints the line number and changes nothing.
+- **Duplicate image names** (one name, in any case, both in a folder and in its `Archives`;
+  they would clash in the ZIP and in the move detection) → the script prints every such pair
+  in red, changes nothing and exits with code 1 (`run.bat` then does not start the server).
+  Checked for all folders before any file is touched.
 - The file is written with LF line endings and only when its content changed.
 
 `site` settings: `title`, `description` (shown above the grid when the category has none),
@@ -164,17 +168,18 @@ must have that ratio within 0.5 %. Every card shows a 306:420 box (portrait, w <
   key), glides off the screen (`glide`, 150 ms ease-out, `TAB_MS`; the lightbox's glides take
   250 ms; the system's reduced-motion setting is not honored, by choice); the new
   tab then renders in its place without animation (nothing is pre-rendered), `main` being put
-  back in a layout effect before that paints. Otherwise `main` springs back.
+  back in a layout effect before that paints. Otherwise `main` springs back. The tab's
+  toolbar (see Selection) stays in place throughout: it is moved the opposite way to `main`
+  (it stays inside `main` so that it still scrolls away at the archived area), and a swipe
+  that starts on it is ignored (`allowed(event)`).
 - **Selection** is kept across tabs. With `rememberSelection` on it is also stored in
   `localStorage` (`lpbd-selection`, ids are `folder/file`) and ids that no longer exist are
   dropped at load; with it off (the default) a reload starts with nothing selected, and any
   stored selection is removed. Everything sits in the toolbar
-  under the tabs (sticky under the header on desktop while something is selected,
+  under the tabs, on every screen size (sticky under the header while something is selected,
   `.toolbar.sticky`, within `.current`, the toolbar and the current grid, so it scrolls away
-  when the archived area reaches it; on phones, ≤ 520 px, the controls are instead a bar fixed at the bottom of
-  the screen, rendered after `main` because `main` is what the tab swipe moves and a
-  transformed ancestor would carry a fixed bar along; `useMediaQuery(PHONE_QUERY)`, the
-  description staying at the top): the tab's description at the left; at the right a status block, "x images
+  when the archived area reaches it; on phones, ≤ 520 px, the description takes a line of its
+  own above the controls): the tab's description at the left; at the right a status block, "x images
   selected" over "(n in other tabs)" (or the download progress, or a red failure with a
   Dismiss button among the buttons), and then the buttons, always side by side (they wrap
   when the width runs out). The buttons, in order: Clear, the blue "Download <size>" (the

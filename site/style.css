@@ -129,25 +129,23 @@ main { --bottom: 72px; flex: 1; padding: 0 8px var(--bottom); touch-action: pan-
   padding: 8px 4px;
 }
 .toolbar p { margin: 0; }
-/* On desktop the tab's toolbar (not the archived part's) sticks under the header while
+/* The tab's toolbar (not the archived part's) sticks under the header while
    something is selected (app.js adds .sticky then), with the header's translucent background,
    so the selection controls stay at hand while scrolling. It sticks within .current (the
    toolbar and the current grid) only: it scrolls away when the archived area reaches it. */
-@media (min-width: 521px) {
-  .current > .toolbar.sticky {
-    position: sticky;
-    top: 40px; /* the header's height */
-    z-index: 9;
-    background: color-mix(in srgb, var(--bg) 92%, transparent);
-    backdrop-filter: blur(8px);
-  }
+.current > .toolbar.sticky {
+  position: sticky;
+  top: 40px; /* the header's height */
+  z-index: 9;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(8px);
 }
 /* Right side of the toolbar: the status block ("x images selected" over "(n in other tabs)",
    or the download progress, or a failure), then the buttons, always side by side. */
 /* min-height: two lines of status (2 x the status' line-height of 1.25), whether the status has
    one line or two ("(n in other tabs)") or is absent: no height change on navigation; a single
-   line is centered in it. content-box, so that the phone bar's padding does not eat into it. */
-.actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 8px; margin-left: auto; box-sizing: content-box; min-height: 2.5em; }
+   line is centered in it. */
+.actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 8px; margin-left: auto; min-height: 2.5em; }
 .actions .buttons { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
 .actions .status { display: flex; flex-direction: column; justify-content: center; text-align: right; margin-right: 6px; line-height: 1.25; }
 
@@ -377,22 +375,6 @@ main { --bottom: 72px; flex: 1; padding: 0 8px var(--bottom); touch-action: pan-
   .foot { height: 32px; } /* 5px more above and below than the content needs: a finger-sized target */
   .top { padding: 0 8px 0 0; }
   .toolbar p { flex-basis: 100%; }
-  /* The section controls are a bar fixed at the bottom of the screen (app.js renders them
-     after main then); main keeps room for it under the grid. */
-  .actions.bar {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 10;
-    margin: 0;
-    padding: 8px 12px;
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
-    background: var(--surface);
-    border-top: 1px solid var(--line);
-    touch-action: pan-y; /* no pinch zoom here either (it is outside main) */
-  }
-  main { --bottom: calc(100px + env(safe-area-inset-bottom)); }
   .caption { font-size: 10.5px; padding: 0 18px; }
   .check { width: 16px; height: 16px; }
   .foot input:checked ~ .check { background-size: 12px; }

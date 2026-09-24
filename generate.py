@@ -3,6 +3,7 @@
 See CLAUDE.md for the rules (what is preserved, what is commented out).
 """
 import json
+import os
 import re
 import sys
 from datetime import date
@@ -126,6 +127,33 @@ def ordered(entry):
 
 def is_archived(file):
     return file.lower().startswith(ARCHIVE_DIR.lower() + "/")
+
+
+def files_on_disk(folder):
+    """{file: path} of the folder's images, those of its Archives subfolder as "<subfolder>/<name>"."""
+    path = IMAGES / folder
+    if not path.is_dir():
+        return {}
+    on_disk = {p.name: p for p in path.iterdir() if p.is_file() and p.suffix.lower() in EXTENSIONS}
+    for sub in path.iterdir():
+        if sub.is_dir() and sub.name.lower() == ARCHIVE_DIR.lower():
+            on_disk.update({f"{sub.name}/{p.name}": p for p in sub.iterdir() if p.is_file() and p.suffix.lower() in EXTENSIONS})
+    return on_disk
+
+
+def duplicate_names(folder, on_disk):
+    """Files of one folder that share a name (in any case) across the folder and its Archives."""
+    by_name = {}
+    for file in on_disk:
+        by_name.setdefault(Path(file).name.lower(), []).append(f"{folder}/{file}")
+    return [sorted(files) for files in by_name.values() if len(files) > 1]
+
+
+def fail(message):
+    """Prints the message in red and stops with exit code 1."""
+    os.system("")  # switches on ANSI color codes in the Windows console
+    print(f"\033[91m{message}\033[0m")
+    sys.exit(1)
 
 
 def derived_path(base, folder, file):
@@ -305,17 +333,22 @@ def main():
             categories.append({"folder": folder, "title": default_title(folder), "description": "", "images": []})
             print(f"New category: {folder}")
 
+    # Checked before anything is written: an image and an archived one of the same name would
+    # clash in the ZIP and in the move detection.
+    disk = {c["folder"]: files_on_disk(c["folder"]) for c in categories}
+    duplicates = [d for folder, on_disk in disk.items() for d in duplicate_names(folder, on_disk)]
+    if duplicates:
+        fail(
+            "ERROR: duplicate image names (a name may appear only once in a folder and its Archives):\n"
+            + "\n".join("  " + "  =  ".join(files) for files in duplicates)
+            + "\nNothing was changed. Rename or remove one of each and run again."
+        )
+
     keep = set()
     for category in categories:
         folder = category["folder"]
         entries = category.setdefault("images", [])
-        path = IMAGES / folder
-        on_disk = {}
-        if path.is_dir():
-            on_disk = {p.name: p for p in path.iterdir() if p.is_file() and p.suffix.lower() in EXTENSIONS}
-            for sub in path.iterdir():
-                if sub.is_dir() and sub.name.lower() == ARCHIVE_DIR.lower():
-                    on_disk.update({f"{sub.name}/{p.name}": p for p in sub.iterdir() if p.is_file() and p.suffix.lower() in EXTENSIONS})
+        on_disk = disk[folder]
 
         listed = {e["file"] for e in entries}
         for entry in entries:

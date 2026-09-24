@@ -390,8 +390,8 @@
 
   // Touch handlers (to spread on an element) recognizing a one-finger horizontal swipe. The
   // first move decides whether it is sideways (ours) or vertical (the browser's, a
-  // scroll); a second finger (a pinch zoom, the browser's too) drops it. `allowed()` is asked at
-  // the touch; `drag(dx)` follows the finger; `end(dx, far)` gets the release, `far` when the
+  // scroll); a second finger (a pinch zoom, the browser's too) drops it. `allowed(event)` is asked at
+  // the touch (its touchstart); `drag(dx)` follows the finger; `end(dx, far)` gets the release, `far` when the
   // drag passed a quarter of the element's width or was a quick flick; a dropped swipe ends
   // with `end(0, false)`. `dragY` / `endY`, when given, do the same for a vertical move (a
   // quarter of the height); without them a vertical move is left alone (a scroll).
@@ -432,7 +432,7 @@
     };
     const onTouchStart = (event) => {
       if (event.touches.length > 1) return cancel();
-      if (!allowed()) return;
+      if (!allowed(event)) return;
       const t = event.touches[0];
       touch.current = { x: t.clientX, y: t.clientY, t: performance.now(), axis: null };
     };
@@ -743,8 +743,6 @@
     const [route, go] = useRoute();
     const { selection, toggle, setMany, clear, keepOnly } = useSelection(gallery ? Boolean(gallery.site.rememberSelection) : null);
     const maxBytes = gallery ? gallery.site.maxDownloadMB * 1024 * 1024 : Infinity;
-    const phone = useMediaQuery(PHONE_QUERY);
-
     useEffect(() => {
       // gallery+.jsonc, when it exists, is used instead of gallery.jsonc (generate.py does the same).
       const load = async () => {
@@ -772,25 +770,32 @@
     // off the screen (after following the finger, for a swipe) when there is a tab that way (no
     // wrap-around); the new tab then renders in its place, with no animation, and main is put
     // back before that paints (the layout effect). Otherwise main springs back.
+    // The tab's toolbar stays in place meanwhile: it is moved the opposite way (it stays in
+    // main, so that it still scrolls away when the archived area reaches it), and a swipe that
+    // starts on it is ignored.
     const main = useRef(null);
+    const toolbar = useRef(null);
     const leaving = useRef(false); // main is gliding, or off-screen waiting for the new tab
     const TAB_MS = 150; // quicker than the lightbox's glides: a whole section is leaving
     const switchTab = (step) => {
       const next = step !== 0 && gallery.categories[gallery.categories.indexOf(category) + step]; // 0: spring back
       leaving.current = true;
-      if (next) glide(main.current, -step * main.current.clientWidth, () => go(next.folder, null), { ms: TAB_MS });
+      const width = main.current.clientWidth;
+      glide(toolbar.current, next ? step * width : 0, () => next || unglide(toolbar.current), { ms: TAB_MS });
+      if (next) glide(main.current, -step * width, () => go(next.folder, null), { ms: TAB_MS });
       else glide(main.current, 0, () => (unglide(main.current), (leaving.current = false)), { ms: TAB_MS });
     };
     // (`ref` is taken out: spread with the handlers it would override main's own ref.)
     const { ref: bindSwipe, ...swipeTabs } = useSwipe({
-      allowed: () => !leaving.current,
-      drag: (dx) => follow(main.current, dx),
+      allowed: (event) => !leaving.current && !toolbar.current.contains(event.target),
+      drag: (dx) => (follow(main.current, dx), follow(toolbar.current, -dx)),
       end: (dx, far) => switchTab(far ? (dx < 0 ? 1 : -1) : 0),
     });
     const mainRef = useCallback((el) => ((main.current = el), bindSwipe(el)), [bindSwipe]);
     useLayoutEffect(() => {
       if (leaving.current && main.current) {
         unglide(main.current);
+        unglide(toolbar.current);
         leaving.current = false;
       }
     }, [category]);
@@ -883,12 +888,10 @@
     };
     const siteSlug = slug(gallery.site.title);
 
-    // The section controls: the status block and the buttons. In the toolbar on desktop; on
-    // phones a bar fixed at the bottom of the screen, rendered after main (main is what the tab
-    // swipe moves, and a transformed ancestor would carry a fixed bar along).
+    // The section controls, in the toolbar: the status block and the buttons.
     const tooLarge = totalBytes(selected) > maxBytes; // then the message replaces the count and the download button
     const actions = html`
-      <div className=${phone ? "actions bar" : "actions"}>
+      <div className="actions">
         ${(failure || busy || selected.length > 0) &&
         html`
           <div className="status">
@@ -935,9 +938,9 @@
 
       <main ref=${mainRef} ...${swipeTabs}>
         <div className="current">
-          <div className=${selected.length > 0 ? "toolbar sticky" : "toolbar"}>
+          <div ref=${toolbar} className=${selected.length > 0 ? "toolbar sticky" : "toolbar"}>
             ${(category.description || gallery.site.description) && html`<p>${category.description || gallery.site.description}</p>`}
-            ${!phone && actions}
+            ${actions}
           </div>
           <div className="grid">
             ${current.map(
@@ -960,7 +963,6 @@
           </section>
         `}
       </main>
-      ${phone && actions}
 
       ${openImage &&
       html`
