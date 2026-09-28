@@ -9,7 +9,18 @@ folders. `site/` is the whole website; everything else is tooling.
   `site/thumbs/`. Needs Pillow (`requirements.txt`, venv at
   `%USERPROFILE%\venvs\little-pic-big-diff`).
 - `prepare.bat` — runs `generate.py`. Not scheduled in `runner`; run it after adding/removing images.
-- `run.bat` — `prepare.bat` then `serve.bat`. Those two never call each other.
+- `run.bat` — `copy.bat`, then `prepare.bat`, then `serve.bat`; stops when copy or prepare
+  fails. Those three never call each other.
+- `copy.bat` — this folder is the **template**: other copies of the app (each with its own
+  images and `gallery+.jsonc`) run `copy.bat` (first step of their `run.bat`) to take the
+  app from it (`%USERPROFILE%\OneDrive\Apps\little-pic-big-diff`), never its content. Copied,
+  overwriting: the files at the top of the folder except `copy.bat` itself (a batch file
+  overwritten while it runs can break), `assets\`, and `site\` except `site\images\`,
+  `site\thumbs\`, `site\gallery.jsonc` and `site\gallery+.jsonc`. Nothing is deleted (no
+  `/MIR`): files only in the copy stay. Run from the template it skips. Exits with 0 on
+  success (robocopy's 1-7 are successes too), 1 on failure. Since it never copies itself, a
+  change to `copy.bat` reaches the copies only by hand. It is the one file here that names a
+  path outside the folder, on purpose.
 - `venv.bat` — own copy of `../common/venv.bat` (creates/updates the venv, sets `PY`). This app
   must stay portable: nothing in this folder may reference anything outside it.
 - `archived_mark.py` — writes `site/archived-mark.svg`, the "ARCHIVED" watermark tile behind
@@ -28,9 +39,14 @@ folders. `site/` is the whole website; everything else is tooling.
 - `serve.bat` — runs `serve.py` on port 8137 (opening `index.html` as a file does not
   work: the browser refuses to `fetch` `gallery.jsonc` from a `file://` address).
 - `assets/` — logo source files (`logo-small-borderless-transparent.png` and other versions,
-  `logo-large.png`); not part of the site. `site/logo-small-borderless-transparent.png` is a
-  copy of the transparent one, shown at the top left instead of the site title (`.top .logo`,
-  scaled to the tab strip's 40 px with nothing around it). Copy again after changing the source.
+  `logo-large.png`) and the flyer deck (`Flyers - Placeholders.pptx`: two slides of PowerPoint's
+  "Letter Paper" size, 7.5 × 10 in, which PowerPoint scales to the sheet when printing; four
+  full-bleed frames each of 3.5 in × 4.804 in, exactly 1283:1761, at the page's corners,
+  set by script to the EMU since PowerPoint's dialogs round); nothing here is served:
+  a file gets out of this folder only by a copy into `site/` (`generate.py` for the deck, by
+  hand for the logo). `site/logo-small-borderless-transparent.png` is a copy of the transparent
+  one, shown at the top left instead of the site title (`.top .logo`, scaled to the tab strip's
+  40 px with nothing around it). Copy again after changing the source.
 - `icons.py` — cuts the megaphone-and-fist icon out of `assets/logo-large.png` (`SEARCH_BOX`,
   one color `INK`, opacity from darkness) and writes `site/favicon.ico` (16/32/48, on a white
   rounded square so it shows on a dark tab strip), `site/apple-touch-icon.png` (180, plain white
@@ -38,7 +54,18 @@ folders. `site/` is the whole website; everything else is tooling.
   tracked; run it again only after changing the logo (needs Pillow).
 - `site/index.html`, `site/app.js`, `site/style.css` — the app. React 18 + htm + JSZip come from
   CDNs (cdnjs, jsdelivr), GoatCounter's `count.js` from gc.zgo.at only when counting is on; there
-  is no build step and no `node_modules`.
+  is no build step and no `node_modules`. `app.js` ends by putting the parts other pages build
+  on into `window.LPBD` (the site's initials) and mounts the gallery only when the page has a
+  `#root`.
+- `site/compose.html`, `site/compose.js` — the hidden compose page (see Compose page below).
+  `compose.html` carries the same CDN tags as `index.html`, then `app.js` (which mounts nothing
+  there: no `#root`), then `compose.js`, which takes what it needs from `window.LPBD` (`html`,
+  `React`, `normalize`, `parseJsonc`, `urlPath`, the data file names, `Tile`, `Tabs`,
+  `Lightbox`, `useRoute`, `downloadImages`, `saveAs`, `slug`, `formatBytes`, `plural`; add a
+  piece there before using it) and mounts into `#compose`.
+- `site/flyers-placeholders.pptx` — the deck the compose page fills in the browser. Its source
+  is `assets/Flyers - Placeholders.pptx`, which is never served, so `generate.py` (`copy_deck`)
+  copies it into `site/` when its bytes differ. The copy is tracked.
 - `site/index.html` head: the lines between `<!-- generate.py: … -->` and `<!-- /generate.py -->`
   are rewritten by `generate.py` from the `site` block: `<title>`, `og:title`, and (when
   `description` is not empty) `description` / `og:description`, plus `og:type`, and (when
@@ -61,7 +88,8 @@ folders. `site/` is the whole website; everything else is tooling.
    after the others, under an "Archived" rule, and the lightbox labels them Archived.
 2. `prepare.bat`.
 3. Optionally edit `site/gallery.jsonc` (order, titles, tags, tab titles/descriptions).
-4. `serve.bat` to look at the result (`run.bat` = steps 2 and 4 in one go).
+4. `serve.bat` to look at the result (`run.bat` = steps 2 and 4 in one go). The hidden compose
+   page is at `/compose.html` (see below).
 
 ## gallery.jsonc rules
 `generate.py` rewrites the whole file in a fixed layout: one image per line, every line ending
@@ -170,12 +198,12 @@ clean file is left untouched (no rewrite, no new thumbnail).
   height + `margin-bottom` (the vertical gap) with a `ResizeObserver`, so the cell always fits
   the card. Each card is a white rounded card with an 8 px frame on three sides (the frame turns
   the accent blue, shadowless, with a white title, when the image is selected); the footer is
-  one fixed 26 px `<label>` (check ring at the left, bold title between long dashes, centered;
+  one fixed 36 px `<label>` (9 px above and below the check ring) (check ring at the left, bold title between long dashes, centered;
   clicking anywhere on it selects, clicking the picture opens the lightbox) with no margin
   below it. Accepted costs: small holes, and the browser moves later images up into gaps, so the
   visual order can differ from the JSON order (the lightbox follows the JSON order). At ≤ 520 px
   the grid is exactly 40 columns wide (landscape + 2 portraits, or 3 portraits) with a 5 px frame
-  and a 32 px footer (taller than on desktop: a finger-sized target for selecting).
+  and a 32 px footer (a finger-sized target for selecting).
 - **"New"** is per visitor: an image is new when its `added` date is later than the visitor's
   previous visit (`localStorage` `lpbd-last-visit`, fixed for the tab's lifetime in
   `sessionStorage` so a reload keeps the badges). A first visit shows no badges.
@@ -188,7 +216,9 @@ clean file is left untouched (no rewrite, no new thumbnail).
   tap on a touch screen leaves none stuck. ← / → (with the lightbox closed) and, on touch
   screens, a sideways swipe anywhere under the header (`main` fills the rest of the screen,
   blank space included) go to the previous/next tab, with no wrap-around at the ends
-  (`switchTab`; `useSwipe` is the swipe recognizer shared with the lightbox; its `ref` adds a
+  (`useTabSwitch`, a hook shared with the compose page, which gives the page `main`'s ref and
+  swipe handlers, the toolbar's ref and the ‹ › buttons; `useSwipe` is the swipe recognizer
+  shared with the lightbox; its `ref` adds a
   native non-passive touchmove listener that decides the axis itself (it runs before React's
   handler) and prevents the default once the move is ours, so the browser runs no gesture of
   its own on it, not even a vertical fling from a slightly diagonal drag, whose momentum would
@@ -277,6 +307,97 @@ clean file is left untouched (no rewrite, no new thumbnail).
   immediate), the strip stays on the neighbor until the new image has rendered and is reset in
   a layout effect, before the paint: no frame of the old image in between.
 - Light theme only, by choice; dense spacing by choice.
+
+## Compose page
+`site/compose.html` (`/compose.html`) is a hidden page: nothing on the site links to it and it
+carries `<meta name="robots" content="noindex">`. It exists to make flyers: it shows the same
+tabs and images as the gallery (the archived ones under their "Archived" rule, without the
+gallery's select-all toolbar; the watermark and gray thumbnails come with the `.archive`
+section), two of them are picked **in the order they are clicked** (the `1` / `2` disc on the card is `Tile`'s
+`order`, a `.badge.order`, which takes the place of the "new" badge there), and the deck
+`site/flyers-placeholders.pptx` is filled with them and downloaded:
+
+- **Picking**: `picks` is an array, so its order is the pick order. With both taken a third click
+  is refused and a hint shows in the bar for a few seconds (React puts the checkbox back by
+  itself); clicking a pick again, its ✕ in the bar or Select in the lightbox gives it up. The
+  picks are **not** remembered across reloads. The page is not counted: it never calls
+  `track.start`, and `track` drops every hit until started (the Download button of its lightbox
+  goes through `downloadImages`, which would otherwise count). It has the lightbox (Space =
+  pick) and the gallery's tab switching (← / →, swipe, ‹ › buttons: `useTabSwitch`, see Tabs
+  under Site behavior).
+- **The toolbar**: the controls sit in the tab's toolbar under the header (`.toolbar`, sticky
+  there while a picture is picked, `.sticky`, as the gallery's is while something is selected;
+  it moves with `main` on a tab switch like the gallery's). At the left `.slots`: a round `?`
+  button (`.help`, blue while on) that shows the instructions ("Pick two pictures, in order:
+  the first goes on the front of the flyers, the second on the back") on a line of their own
+  under the controls, then the two slots (`.slot`: the number, 1 the front and 2 the back, and
+  the picture at its own orientation with a ✕, or "Pick a picture"; no title, the card has it;
+  the title is the slot's tooltip). At the right the status (the hint, or a red failure with a
+  Dismiss button) and the blue `Compose` button, enabled only with both picks, which opens the
+  preview.
+- **The preview** (`.preview`, fixed over the page like the lightbox, z-index 20): the two
+  filled pages side by side (stacked on phones), "Front" and "Back" with the picture's title
+  under each, drawn from the deck's own geometry (`deckGeometry`: the page size from
+  `ppt/presentation.xml` and every `<p:pic>` frame of each slide, in EMU, as percentages of
+  the page) with the thumbnails, a landscape picture turned clockwise as in the deck
+  (`img.turned`), and the page's center cross dashed for the cut. Its bar: the deck's name,
+  the status (progress such as "Placed <title> on the front", or a failure), the blue
+  **Download PDF** and **Download PowerPoint** buttons, **Print…** and ✕. Esc closes it too;
+  it is not in the address, so Back does not; it closes by itself when a pick is given up.
+  The three outputs share the deck's geometry (`deckGeometry`), so they place the pictures
+  identically:
+  - **PowerPoint**: `buildDeck`, which fetches the deck again (a filled one cannot be filled
+    twice). Named `"<title1> + <title2>.pptx"` (`deckName`; characters Windows and macOS refuse
+    are dropped).
+  - **PDF**: `buildPdf`, written by hand, no library: two pages of the deck's page size
+    (`MediaBox`, EMU / 12700 = points), one image object per page drawn into its four frames
+    with a `cm` matrix (the landscape turn is the matrix `0 -h w 0 x y+h`), and the center
+    cross as a dashed gray hairline. A JPEG is embedded byte for byte (`DCTDecode`; its color
+    space from the SOF header's component count, `jpegComponents`); another format is drawn on
+    a canvas and stored lossless (`FlateDecode`, deflated with the browser's
+    `CompressionStream`), or as a JPEG (quality 0.92) in a browser without it. Same name,
+    `.pdf`.
+  - **Print…**: `openPrintPage` opens a new tab (blocked pop-ups are reported as a failure) with
+    the two pages in HTML at the deck's page size (`@page { size; margin: 0 }`, the frames in
+    inches, the originals in them, `img.turned` as in the preview, the cut cross dashed), gray
+    around them on screen, and a Print… button with a hint (paper size or "fit to page",
+    margins none) that printing hides. The visitor prints or saves as PDF from the browser.
+- **Filling the deck** (`buildDeck` in `compose.js`): the file is fetched and opened with JSZip.
+  The deck has two slides of 7.5 × 10 in (PowerPoint's "Letter Paper" preset, scaled to the
+  sheet when printing), each with the same picture in **four portrait frames**
+  (a quarter page each, `<p:pic>` with `<a:stretch><a:fillRect/>`): the first pick goes on the
+  first slide, the second on the second. The pictures are put in **as they are**, never
+  re-encoded (they are print files): one media part per slide, `ppt/media/flyer<n>.<ext>`, that
+  every picture relationship of `slide<n>.xml.rels` is pointed at (`pointedAt`); the template's
+  own parts (`image1-4.jpg`, `image5-8.png`) are removed, and `[Content_Types].xml` gets a
+  `Default` for the extension when it has none (`typed`; jpg, jpeg and png are declared, gif is
+  added). Only JPEG, PNG and GIF go in as they are (`EMBED`); a WebP is drawn on a canvas and
+  encoded as a JPEG (quality 0.92) first, since PowerPoint's WebP support is unreliable. The
+  frames have **exactly the gallery's ratio** (1283:1761, `RATIO`; 3.5 in × 4.804 in, full bleed
+  at the page's corners with a 0.5 in gutter between the columns and 0.39 in between the rows),
+  so a gallery image fills its frame with nothing cut, shrunk or stretched. An image off that
+  ratio by more than `RATIO_TOLERANCE` (0.1 %; `generate.py` flags those as INCORRECT RATIO but
+  still serves them) **cannot be picked**: the click is refused with a hint in the bar (`fits`,
+  from the image's `w` × `h` in `gallery.jsonc`). A **landscape** picture is turned 90° in the
+  slide's XML (`turned`, on every `<p:pic>` block): its `<a:xfrm>` gets the frame's size with
+  width and height swapped, offset so the center stays, and a `rot`, so the visible footprint
+  is still the frame and nothing of the picture is lost. It turns **clockwise**
+  (`rot="5400000"`), its top to the right, the way a right hand turns the sheet (the lightbox's
+  ↺ turns the other way, by choice). The two slides are the **front and back of one sheet**,
+  read by flipping it **left to right**, and clockwise on both sides is right when the sheet is
+  printed the same way: turned over on its **long edge** (the printer's default duplex) unless
+  **both sides are landscape**, then on its **short edge** (re-fed by hand, flipped over its
+  short edge). Printed on the long edge, a landscape back behind a landscape front would come
+  out upside down. The XML is edited with regular expressions, not a DOM, so the
+  XML declaration and namespaces come through untouched; a deck whose slides have no picture
+  frame or picture relationship makes it fail with a message. The result is packed with the
+  XML parts deflated (JSZip keeps their compression) and the pictures stored as they are, and
+  handed to the browser through `LPBD.saveAs` as `"<title1> + <title2>.pptx"` (characters
+  Windows and macOS refuse are dropped). `docProps/thumbnail.jpeg` is left as it is.
+- The page title is `Compose – <site title>`, or `<image title> – Compose` in the lightbox; the
+  page follows the same `#folder` / `#folder/file` addresses as the gallery.
+- `normalize(raw, "")`: the page passes an empty "new since" date, so nothing is marked new and
+  no visit is recorded for the gallery (`previousVisit` runs only as the default argument).
 
 ## Usage counting (GoatCounter)
 Off until `"goatcounter"` in the `site` block holds the site's count endpoint,

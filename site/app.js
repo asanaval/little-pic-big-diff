@@ -42,16 +42,10 @@
       if (enabled && !timer && typeof window.goatcounter?.count === "function") send();
     };
     const isLocal = location.protocol === "file:" || /^(localhost$|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.0\.0\.0$|\[::1\]$)/.test(location.hostname);
-    const query = new URLSearchParams(location.search);
-    if (isLocal && !query.has("w")) {
-      query.set("w", COUNT_LOCAL_W);
-      history.replaceState(history.state, "", `${location.pathname}?${query}${location.hash}`);
-    }
-    const marks = new URLSearchParams();
-    if (query.get("w")) marks.set("w", query.get("w"));
-    const suffix = marks.size ? "?" + marks : "";
+    let suffix = ""; // "?w=<value>", set by start()
+    // Hits before start() (or on a page that never starts counting, like compose.html) are dropped.
     const count = (hit) => {
-      if (enabled === false) return;
+      if (!enabled) return;
       queue.push({ ...hit, path: hit.path + suffix });
       drain();
     };
@@ -70,6 +64,12 @@
       start(endpoint) {
         enabled = /^https:\/\//.test(endpoint || "");
         if (!enabled) return (queue.length = 0);
+        const query = new URLSearchParams(location.search);
+        if (isLocal && !query.has("w")) {
+          query.set("w", COUNT_LOCAL_W);
+          history.replaceState(history.state, "", `${location.pathname}?${query}${location.hash}`);
+        }
+        if (query.get("w")) suffix = "?" + new URLSearchParams({ w: query.get("w") });
         window.goatcounter = { no_onload: true, no_events: true, allow_local: isLocal, endpoint };
         const script = document.createElement("script");
         script.async = true;
@@ -141,7 +141,9 @@
     }
   }
 
-  function normalize(raw) {
+  // `newSince` is the date the "new" badges count from. The compose page passes "": nothing is
+  // new there, and no visit of its own is recorded (previousVisit writes one).
+  function normalize(raw, newSince = previousVisit()) {
     const site = {
       title: "Gallery",
       description: "",
@@ -152,7 +154,6 @@
       maxDownloadMB: 100,
       ...raw.site,
     };
-    const newSince = previousVisit();
     const categories = (raw.categories || [])
       .map((category) => ({
         ...category,
@@ -371,14 +372,16 @@
     return ref;
   }
 
-  const Tile = memo(function Tile({ image, selected, onToggle, onOpen }) {
+  // `order` (the compose page's 1 / 2, the order in which the images were picked) takes the badge's
+  // place: on that page nothing is new and the pick order is what matters.
+  const Tile = memo(function Tile({ image, selected, onToggle, onOpen, order }) {
     const ref = useRowSpan();
     return html`
       <div ref=${ref} className=${`tile ${image.shape}${selected ? " selected" : ""}${image.archived ? " archived" : ""}`}>
         <button className="pic" style=${{ aspectRatio: image.box }} onClick=${() => onOpen(image)} title=${image.title}>
           <img src=${image.thumb} alt=${image.title} loading="lazy" decoding="async" />
         </button>
-        ${image.isNew && html`<span className="badge">new</span>`}
+        ${order ? html`<span className="badge order">${order}</span>` : image.isNew && html`<span className="badge">new</span>`}
         <label className="foot" title=${image.title}>
           <input type="checkbox" checked=${selected} onChange=${() => onToggle(image, "card")} />
           <span className="check"></span>
@@ -680,6 +683,65 @@
   // The tab strip scrolls sideways when it does not fit (phones), and nothing shows that by
   // itself (its scrollbar is hidden). So a ≪ or ≫ overlays the edge behind which more tabs hide;
   // tapping it scrolls most of a screenful that way. The active tab is kept in view.
+  // Going to the previous/next tab, shared by the gallery and the compose page: a swipe on
+  // `main`, ← / → (while `active`: the lightbox, which has its own, is closed) and the ‹ / ›
+  // buttons at the window's edges (`tabButtons`, none at the ends; fixed, so to be rendered
+  // after main: a transformed ancestor, main during a swipe, would carry them along). main glides
+  // off the screen (after following the finger, for a swipe) when there is a tab that way (no
+  // wrap-around); the new tab then renders in its place, with no animation, and main is put
+  // back before that paints (the layout effect). Otherwise main springs back. The tab's toolbar
+  // (`toolbarRef`) stays in place meanwhile: it is moved the opposite way (it stays in main, so
+  // that it still scrolls away when the archived area reaches it), and a swipe that starts on it
+  // is ignored. Spread `swipeTabs` on main and give it `mainRef`.
+  function useTabSwitch({ categories, category, go, active }) {
+    const main = useRef(null);
+    const toolbar = useRef(null);
+    const leaving = useRef(false); // main is gliding, or off-screen waiting for the new tab
+    const TAB_MS = 150; // quicker than the lightbox's glides: a whole section is leaving
+    const switchTab = (step) => {
+      const next = step !== 0 && categories[categories.indexOf(category) + step]; // 0: spring back
+      leaving.current = true;
+      const width = main.current.clientWidth;
+      glide(toolbar.current, next ? step * width : 0, () => next || unglide(toolbar.current), { ms: TAB_MS });
+      if (next) glide(main.current, -step * width, () => go(next.folder, null), { ms: TAB_MS });
+      else glide(main.current, 0, () => (unglide(main.current), (leaving.current = false)), { ms: TAB_MS });
+    };
+    // (`ref` is taken out: spread with the handlers it would override main's own ref.)
+    const { ref: bindSwipe, ...swipeTabs } = useSwipe({
+      allowed: (event) => !leaving.current && !(toolbar.current && toolbar.current.contains(event.target)),
+      drag: (dx) => (follow(main.current, dx), follow(toolbar.current, -dx)),
+      end: (dx, far) => switchTab(far ? (dx < 0 ? 1 : -1) : 0),
+    });
+    const mainRef = useCallback((el) => ((main.current = el), bindSwipe(el)), [bindSwipe]);
+    useLayoutEffect(() => {
+      if (leaving.current && main.current) {
+        unglide(main.current);
+        unglide(toolbar.current);
+        leaving.current = false;
+      }
+    }, [category]);
+    useEffect(() => {
+      if (!active) return;
+      const onKey = (event) => {
+        if (event.altKey || event.ctrlKey || event.metaKey || leaving.current) return;
+        if (event.key === "ArrowLeft") switchTab(-1);
+        else if (event.key === "ArrowRight") switchTab(1);
+        else return;
+        event.preventDefault();
+      };
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    });
+    const tabIndex = categories.indexOf(category);
+    const tabStep = (step) => () => leaving.current || switchTab(step);
+    const tabButtons = html`
+      ${tabIndex > 0 && html`<button className="nav tab-nav prev" onClick=${tabStep(-1)} aria-label="Previous gallery">‹</button>`}
+      ${tabIndex >= 0 && tabIndex < categories.length - 1 &&
+      html`<button className="nav tab-nav next" onClick=${tabStep(1)} aria-label="Next gallery">›</button>`}
+    `;
+    return { mainRef, toolbarRef: toolbar, swipeTabs, tabButtons };
+  }
+
   function Tabs({ categories, category, go, showCounts }) {
     const ref = useRef(null);
     const [more, setMore] = useState({ left: false, right: false });
@@ -766,51 +828,12 @@
     }, [gallery, allImages, keepOnly]);
 
     const category = gallery && (gallery.categories.find((c) => c.folder === route.folder) || gallery.categories[0]);
-    // A swipe on the page, or ← / → (lightbox closed), goes to the previous/next tab: main glides
-    // off the screen (after following the finger, for a swipe) when there is a tab that way (no
-    // wrap-around); the new tab then renders in its place, with no animation, and main is put
-    // back before that paints (the layout effect). Otherwise main springs back.
-    // The tab's toolbar stays in place meanwhile: it is moved the opposite way (it stays in
-    // main, so that it still scrolls away when the archived area reaches it), and a swipe that
-    // starts on it is ignored.
-    const main = useRef(null);
-    const toolbar = useRef(null);
-    const leaving = useRef(false); // main is gliding, or off-screen waiting for the new tab
-    const TAB_MS = 150; // quicker than the lightbox's glides: a whole section is leaving
-    const switchTab = (step) => {
-      const next = step !== 0 && gallery.categories[gallery.categories.indexOf(category) + step]; // 0: spring back
-      leaving.current = true;
-      const width = main.current.clientWidth;
-      glide(toolbar.current, next ? step * width : 0, () => next || unglide(toolbar.current), { ms: TAB_MS });
-      if (next) glide(main.current, -step * width, () => go(next.folder, null), { ms: TAB_MS });
-      else glide(main.current, 0, () => (unglide(main.current), (leaving.current = false)), { ms: TAB_MS });
-    };
-    // (`ref` is taken out: spread with the handlers it would override main's own ref.)
-    const { ref: bindSwipe, ...swipeTabs } = useSwipe({
-      allowed: (event) => !leaving.current && !toolbar.current.contains(event.target),
-      drag: (dx) => (follow(main.current, dx), follow(toolbar.current, -dx)),
-      end: (dx, far) => switchTab(far ? (dx < 0 ? 1 : -1) : 0),
-    });
-    const mainRef = useCallback((el) => ((main.current = el), bindSwipe(el)), [bindSwipe]);
-    useLayoutEffect(() => {
-      if (leaving.current && main.current) {
-        unglide(main.current);
-        unglide(toolbar.current);
-        leaving.current = false;
-      }
-    }, [category]);
     const openImage = (category && route.file && category.images.find((image) => image.file === route.file)) || null;
-    useEffect(() => {
-      if (!gallery || openImage) return; // the lightbox has its own ← / →
-      const onKey = (event) => {
-        if (event.altKey || event.ctrlKey || event.metaKey || leaving.current) return;
-        if (event.key === "ArrowLeft") switchTab(-1);
-        else if (event.key === "ArrowRight") switchTab(1);
-        else return;
-        event.preventDefault();
-      };
-      window.addEventListener("keydown", onKey);
-      return () => window.removeEventListener("keydown", onKey);
+    const { mainRef, toolbarRef, swipeTabs, tabButtons } = useTabSwitch({
+      categories: gallery ? gallery.categories : [],
+      category,
+      go,
+      active: Boolean(gallery) && !openImage, // the lightbox has its own ← / →
     });
 
     useEffect(() => {
@@ -930,17 +953,6 @@
       </div>
     `;
 
-    // ‹ / › at the window's edges, like the lightbox's, go to the previous/next tab (the same
-    // glide as ← / →), none at the ends. Fixed, so rendered after main: a transformed ancestor
-    // (main during a tab swipe) would carry them along.
-    const tabIndex = gallery.categories.indexOf(category);
-    const tabStep = (step) => () => leaving.current || switchTab(step);
-    const tabButtons = html`
-      ${tabIndex > 0 && html`<button className="nav tab-nav prev" onClick=${tabStep(-1)} aria-label="Previous gallery">‹</button>`}
-      ${tabIndex < gallery.categories.length - 1 &&
-      html`<button className="nav tab-nav next" onClick=${tabStep(1)} aria-label="Next gallery">›</button>`}
-    `;
-
     return html`
       <header className="top">
         <img className="logo" src="logo-small-borderless-transparent.png" alt=${gallery.site.title} />
@@ -949,7 +961,7 @@
 
       <main ref=${mainRef} ...${swipeTabs}>
         <div className="current">
-          <div ref=${toolbar} className=${selected.length > 0 ? "toolbar sticky" : "toolbar"}>
+          <div ref=${toolbarRef} className=${selected.length > 0 ? "toolbar sticky" : "toolbar"}>
             ${category.description && html`<p>${category.description}</p>`}
             ${actions}
           </div>
@@ -991,5 +1003,13 @@
     `;
   }
 
-  ReactDOM.createRoot(document.getElementById("root")).render(html`<${App} />`);
+  // The parts other pages of the site build on. compose.html loads compose.js after this file:
+  // that page has no #root, so nothing is mounted here, and compose.js mounts its own component
+  // with these. Add a piece here before using it there. (LPBD: the site's initials.)
+  window.LPBD = {
+    html, React, normalize, parseJsonc, urlPath, GALLERY_FILE, OVERRIDE_FILE,
+    Tile, Tabs, Lightbox, useRoute, useTabSwitch, downloadImages, saveAs, slug, formatBytes, plural,
+  };
+  const root = document.getElementById("root");
+  if (root) ReactDOM.createRoot(root).render(html`<${App} />`);
 })();

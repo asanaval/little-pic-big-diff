@@ -23,6 +23,10 @@ GALLERY = SITE / "gallery+.jsonc" if (SITE / "gallery+.jsonc").exists() else SIT
 # from the "site" block: link previews (Signal, WhatsApp, ...) read the HTML without running app.js.
 INDEX = SITE / "index.html"
 HEAD_BLOCK = re.compile(r"(<!-- generate\.py:[^\n]*-->\n)(.*?)([ \t]*<!-- /generate\.py -->)", re.S)
+# site/compose.html places two chosen images in this deck, in the browser. Its source is in
+# assets/ (tooling, nothing there is served), so the file is copied into site/ like the logo.
+DECK_SOURCE = ROOT / "assets" / "Flyers - Placeholders.pptx"
+DECK = SITE / "flyers-placeholders.pptx"
 
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 # Folders with this prefix are sample content: deleted from site/images (their category blocks
@@ -426,6 +430,18 @@ def update_index(site):
     return True
 
 
+def copy_deck():
+    """Copies the deck from assets/ into site/ when its bytes differ. Returns True when it did."""
+    if not DECK_SOURCE.exists():
+        print(f"{DECK_SOURCE.relative_to(ROOT)}: missing, the compose page has no deck to fill")
+        return False
+    if DECK.exists() and DECK.read_bytes() == DECK_SOURCE.read_bytes():
+        return False
+    shutil.copyfile(DECK_SOURCE, DECK)
+    print(f"{DECK.name} copied from assets/ (the compose page fills it)")
+    return True
+
+
 def render(gallery):
     dump = lambda value: json.dumps(value, ensure_ascii=False)
     lines = [
@@ -493,6 +509,8 @@ def main():
 
     for folder in demo_folders:
         shutil.rmtree(IMAGES / folder)
+
+    copy_deck()
 
     keep = set()
     for category in categories:

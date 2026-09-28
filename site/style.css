@@ -115,7 +115,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
    space under a short grid still lands on main (which carries the tab swipe). main moves
    sideways with the finger: clip (not hidden, which would break the sticky header) keeps that
    from widening the page. */
-#root { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; overflow-x: clip; }
+#root, #compose { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; overflow-x: clip; }
 /* No pinch zoom on the page (header and main): a zoomed-in pan would otherwise read as a tab
    swipe. The lightbox, a sibling, zooms on its own. */
 main { --bottom: 72px; flex: 1; padding: 0 8px var(--bottom); touch-action: pan-y; } /* --bottom: room under the grid (the archived watermark runs through it) */
@@ -281,7 +281,75 @@ main { --bottom: 72px; flex: 1; padding: 0 8px var(--bottom); touch-action: pan-
   pointer-events: none;
 }
 
+/* The compose page's 1 / 2 (the deck page the picture goes on) in the badge's place: a blue disc. */
+.badge.order {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 13px;
+  line-height: 22px;
+  text-align: center;
+  letter-spacing: 0;
+}
+
 .failure { color: #b91c1c; }
+
+/* ---------- the compose page (site/compose.html + compose.js) ---------- */
+
+/* The controls sit in the tab's toolbar, under the header (sticky there while a picture is
+   picked, like the gallery's while something is selected): a ? that shows the instructions on
+   a line of its own, the two slots (1 the front, 2 the back: the number and, once picked, the
+   picture at its own orientation and a ✕; no title, the card has it), then at the right the
+   status and the Compose button. */
+.toolbar .slots { display: flex; align-items: center; gap: 8px; }
+.toolbar .help { flex: none; width: 28px; height: 28px; padding: 0; border-radius: 50%; font-weight: 700; color: var(--muted); }
+.toolbar .help.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.toolbar .help-text { flex-basis: 100%; }
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  min-width: 78px; /* an empty slot is as wide as one holding a portrait picture */
+  padding: 0 6px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+}
+.slot.filled { border-style: solid; border-color: var(--accent); }
+.slot img { width: auto; height: auto; max-width: 41px; max-height: 41px; border-radius: 2px; }
+.slot .badge.order { position: static; flex: none; width: 18px; height: 18px; font-size: 11px; line-height: 18px; }
+.slot .x { flex: none; padding: 2px 6px; border-color: transparent; color: var(--muted); }
+
+.slot .muted { font-size: 12px; white-space: nowrap; }
+
+/* The preview: the two filled pages (front, back) as the deck will show them, drawn from the
+   deck's own frame geometry, with the thumbnails; a landscape picture is turned as in the deck.
+   The page's center cross stands for the cut. Download PowerPoint builds the deck. */
+.preview { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; background: var(--bg); }
+.preview .bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.preview .bar h2 { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.preview .bar .status { text-align: right; line-height: 1.25; }
+.preview .sheets { flex: 1; overflow: auto; display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 24px; padding: 16px; }
+.preview figure { flex: 0 1 340px; margin: 0; text-align: center; }
+.preview .page { position: relative; overflow: hidden; background: #fff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25); }
+.preview .page::before, .preview .page::after { content: ""; position: absolute; border: 0 dashed var(--line); pointer-events: none; }
+.preview .page::before { left: 0; right: 0; top: 50%; border-top-width: 1px; }
+.preview .page::after { top: 0; bottom: 0; left: 50%; border-left-width: 1px; }
+.preview .frame { position: absolute; overflow: hidden; background: #eee; }
+.preview .frame img { position: absolute; left: 50%; top: 50%; width: 100%; height: 100%; transform: translate(-50%, -50%); }
+/* A landscape picture, turned clockwise: its box is the frame's height wide (height set inline
+   to the frame's width, RATIO of it; width follows the picture's ratio) before the turn. */
+.preview .frame img.turned { width: auto; transform: translate(-50%, -50%) rotate(90deg); }
+.preview figcaption { margin-top: 6px; font-size: 13px; color: var(--muted); }
+
+@media (max-width: 520px) {
+  .slot { height: 40px; }
+  .preview .sheets { gap: 16px; padding: 12px; }
+  .preview figure { flex-basis: 100%; max-width: 300px; }
+}
 
 /* ---------- lightbox ---------- */
 
