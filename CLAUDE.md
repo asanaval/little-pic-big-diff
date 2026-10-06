@@ -425,9 +425,9 @@ path, last one wins) and a *referrer* (listed under the path with its own counts
   - Reserved, no UI yet: `upvote/…`, `downvote/…`, `report/…` (referrer = reason) via
     `track.vote(image, up)` and `track.report(image, reason)`.
 - **Mark**: every path ends with `?w=<value>` when the page address has a `w` query item
-  (`https://…/?w=asana#folder`, kept for the tab's lifetime since navigation only changes the hash),
-  so the dashboard filter `w=asana` shows those hits. On localhost (`serve.bat`) hits are sent
-  as well; when the address has no `w`, the page first adds `?w=asana` (`COUNT_LOCAL_W` in
+  (`https://…/?w=myself#folder`, kept for the tab's lifetime since navigation only changes the hash),
+  so the dashboard filter `w=myself` shows those hits. On localhost (`serve.bat`) hits are sent
+  as well; when the address has no `w`, the page first adds `?w=myself` (`COUNT_LOCAL_W` in
   `app.js`) to it, visibly, and an address that already has one (`?w=test`) is left alone.
   Nothing else identifies the visitor. Visiting the site with `#toggle-goatcounter` switches counting off (and on again) for
   that browser. There is no consent banner: nothing is stored on the visitor's device for counting.

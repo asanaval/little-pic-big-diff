@@ -11,7 +11,7 @@
   const TOO_LARGE = "Selection is too large to download";
   const FETCHES_AT_ONCE = 4;
   const COUNT_SCRIPT = "https://gc.zgo.at/count.js";
-  const COUNT_LOCAL_W = "asana"; // put into the address as ?w=… on localhost when it has no w
+  const COUNT_LOCAL_W = "myself"; // put into the address as ?w=… on localhost when it has no w
   const COUNT_GAP_MS = 300; // GoatCounter refuses more than 4 hits per second per address
   const COUNT_REF_MAX = 2000; // GoatCounter cuts longer referrer values
 
@@ -20,7 +20,7 @@
   // gallery.jsonc; without it nothing is loaded and nothing is sent. One hit per page view or
   // action, queued and sent one every COUNT_GAP_MS; hits still queued when the tab closes are
   // lost. Every hit's path ends with "?w=<value>" when the page address has a w query item
-  // (https://…/?w=asana#folder). On localhost (serve.bat) hits are sent too, and ?w=COUNT_LOCAL_W
+  // (https://…/?w=myself#folder). On localhost (serve.bat) hits are sent too, and ?w=COUNT_LOCAL_W
   // is added to the address first when it has no w. #toggle-goatcounter switches count.js
   // off/on for a browser.
   // Page views: path "/#folder" or "/#folder/file". Events: path
